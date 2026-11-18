@@ -1,0 +1,80 @@
+/* ── entrada dos sócios (só na versão hospedada na Vercel) ── */
+body.auth-on #app { display: none !important; }
+input[type='password'] {
+  width: 100%; min-height: 38px; padding: 8px 11px; border-radius: var(--r-sm); border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field.bad input[type='password'] { border-color: var(--bad); }
+
+.auth { position: fixed; inset: 0; z-index: 100; display: grid; grid-template-columns: minmax(340px, 44%) minmax(0, 1fr); background: var(--bg); overflow-y: auto; }
+.auth-side { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; min-height: 100%; padding: 30px 36px 36px; background: var(--night); color: var(--night-ink); overflow: hidden; }
+.auth-brand { display: flex; align-items: center; gap: 10px; }
+.auth-word { font-size: 17px; font-weight: 600; letter-spacing: 0.04em; color: var(--night-mute); }
+.auth-word b { margin-right: 3px; font-weight: 800; font-stretch: 125%; letter-spacing: 0.02em; color: var(--night-ink); }
+.auth-art { display: block; width: calc(100% + 72px); max-height: 56vh; aspect-ratio: 3 / 2; margin: 0 -36px; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.auth-art .a-in { stroke: #ffffff; stroke-width: 2.4; }
+.auth-art .a-pass { stroke: rgba(255, 255, 255, 0.42); stroke-width: 1.6; }
+.auth-art .a-prism { stroke: #ffffff; stroke-width: 2.6; }
+.auth-art .a-r { stroke-width: 2.4; }
+.auth-art .a-r1 { stroke: #b9cdff; }
+.auth-art .a-r2 { stroke: #6f97ff; }
+.auth-art .a-r3 { stroke: #2f62ff; }
+.auth-slogan { max-width: 22ch; font-size: 19px; font-weight: 500; line-height: 1.35; color: var(--night-mute); }
+
+.auth-main { display: grid; place-items: center; padding: 48px 28px; }
+.auth-box { width: 100%; max-width: 380px; }
+.auth-t { font-size: 30px; font-weight: 800; font-stretch: 112%; line-height: 1.1; letter-spacing: -0.01em; }
+.auth-d { margin-top: 8px; font-size: 14.5px; color: var(--ink-2); }
+.auth-aviso { margin-top: 18px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--warn-bg); color: var(--warn); font-size: 13.5px; font-weight: 500; }
+.auth-form { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+.auth-form .field > label { font-size: 13px; }
+.auth-pass { position: relative; }
+.auth-pass input { padding-right: 82px; }
+.auth-ver { position: absolute; top: 50%; right: 5px; height: 28px; padding: 0 10px; transform: translateY(-50%); border: 0; border-radius: 7px; background: transparent; color: var(--blue-ink); font-size: 12.5px; font-weight: 600; }
+.auth-ver:hover { background: var(--hover); }
+.auth-codigo { font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.auth-codigo::placeholder { letter-spacing: 0.14em; }
+.auth-erro { font-size: 13px; font-weight: 600; color: var(--bad); }
+.auth-erro[hidden] { display: none; }
+.auth-btn { width: 100%; height: 44px; margin-top: 4px; font-size: 15px; }
+.auth-alt { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--ink-2); }
+.auth-alt b { color: var(--ink); font-weight: 600; }
+.auth-wait { display: flex; align-items: center; gap: 12px; color: var(--ink-2); }
+.auth-spin { width: 18px; height: 18px; flex: none; border: 2px solid var(--line-2); border-top-color: var(--blue); border-radius: 50%; animation: auth-gira 0.8s linear infinite; }
+@keyframes auth-gira { to { transform: rotate(360deg); } }
+
+/* um momento só: a luz entra no prisma e sai em três */
+@media (prefers-reduced-motion: no-preference) {
+  .auth-art .a-in, .auth-art .a-pass, .auth-art .a-r { stroke-dasharray: 1; stroke-dashoffset: 1; animation: auth-luz 0.55s cubic-bezier(0.3, 0.7, 0.2, 1) forwards; }
+  .auth-art .a-in { animation-delay: 0.1s; }
+  .auth-art .a-pass { animation-delay: 0.5s; animation-duration: 0.25s; }
+  .auth-art .a-r1 { animation-delay: 0.72s; }
+  .auth-art .a-r2 { animation-delay: 0.8s; }
+  .auth-art .a-r3 { animation-delay: 0.88s; }
+  .auth-spin { animation-duration: 0.8s; }
+}
+@media (prefers-reduced-motion: reduce) { .auth-spin { animation-duration: 2.4s; } }
+@keyframes auth-luz { to { stroke-dashoffset: 0; } }
+
+@media (max-width: 860px) {
+  .auth { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .auth-side { min-height: 0; gap: 6px; padding: 18px 20px 0; }
+  .auth-art { width: calc(100% + 40px); max-height: 150px; margin: 0 -20px; aspect-ratio: 16 / 5; }
+  .auth-slogan { display: none; }
+  .auth-main { place-items: start center; padding: 28px 20px 48px; }
+  .auth-t { font-size: 26px; }
+}
+
+/* ── conta e acesso dos sócios, em Ajustes ── */
+.conta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.conta-id { display: flex; flex-direction: column; min-width: 0; }
+.conta-id b { font-weight: 600; }
+.conta-id small { color: var(--ink-3); font-size: 12.5px; overflow-wrap: anywhere; }
+.conta-acts { display: flex; gap: 8px; margin-left: auto; }
+.acesso-lista { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r); }
+.acesso-lista li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; flex-wrap: wrap; }
+.acesso-lista li + li { border-top: 1px solid var(--line); }
+.acesso-lista .conta-id { flex: 1; }
+.acesso-tag { font-size: 12px; font-weight: 600; color: var(--blue-ink); background: var(--blue-soft); border-radius: 99px; padding: 2px 9px; }
+.codigo-grande { margin: 14px 0 6px; padding: 16px; border-radius: var(--r); background: var(--surface-2); border: 1px dashed var(--line-2); text-align: center; font-size: 26px; font-weight: 700; letter-spacing: 0.16em; font-variant-numeric: tabular-nums; user-select: all; }
+.conta-nota { margin-top: 10px; }
+.conta-form { display: flex; flex-direction: column; gap: 14px; }
