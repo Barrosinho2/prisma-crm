@@ -26,6 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Identificação do GitHub (sem senha)
         id: oidc
         uses: actions/github-script@v7
@@ -68,7 +72,7 @@ jobs:
           mkdir -p diario
           cp backup.json "diario/$DIA.json"
           cp backup.json ultimo.json
-          rm backup.json
+          rm -f backup.json
           git add -A
           git commit -q -m "Backup de $DIA" || echo "sem mudanças"
           git push origin backups
