@@ -1,0 +1,74 @@
+# Backup diário do Prisma CRM, fora do site e fora do Supabase.
+# Todo dia às 03h17 (Brasília), baixa o banco inteiro e guarda no branch "backups" deste repositório:
+#   ultimo.json         → a cópia mais recente
+#   diario/AAAA-MM-DD.json → uma por dia (o Git guarda todas as versões)
+# Para restaurar: no CRM, Ajustes → Importar backup, escolhendo o arquivo.
+name: Backup do CRM
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/backup.yml']
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Identificação do GitHub (sem senha)
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const t = await core.getIDToken('prisma-crm-backup');
+            core.setSecret(t);
+            core.setOutput('token', t);
+
+      - name: Baixa o banco
+        env:
+          TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          for i in 1 2 3; do
+            curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $TOKEN" \
+              https://plnnmlooqbzwwcfsqmxg.supabase.co/functions/v1/exportar -o backup.json && break
+            sleep 20
+          done
+          python3 - <<'PY'
+          import json
+          d = json.load(open('backup.json'))
+          assert d.get('app') == 'prisma-crm', 'backup inválido'
+          print('documentos no backup:', d.get('documentos'))
+          PY
+
+      - name: Guarda no branch backups
+        run: |
+          DIA=$(TZ=America/Sao_Paulo date +%F)
+          git config user.name "Backup do Prisma CRM"
+          git config user.email "backup@prisma-crm.invalid"
+          if git ls-remote --exit-code --heads origin backups >/dev/null; then
+            git fetch --depth 1 origin backups
+            git switch -c backups FETCH_HEAD
+          else
+            git switch --orphan backups
+            git rm -rf --quiet . || true
+            printf '{ "git": { "deploymentEnabled": false } }\n' > vercel.json
+            printf '# Backups do Prisma CRM\n\nUma cópia por dia em diario/. Restaure no CRM em Ajustes → Importar backup.\n' > README.md
+          fi
+          mkdir -p diario
+          cp backup.json "diario/$DIA.json"
+          cp backup.json ultimo.json
+          rm backup.json
+          git add -A
+          git commit -q -m "Backup de $DIA" || echo "sem mudanças"
+          git push origin backups

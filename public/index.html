@@ -8032,6 +8032,10 @@ function start(hot) {
     }
     renderChrome();
   });
+  // não deixa fechar a aba no meio de um salvamento
+  window.addEventListener('beforeunload', (e) => {
+    if (Store.pendingWrites()) { e.preventDefault(); e.returnValue = ''; }
+  });
   // mantém o "hoje" correto se a aba ficar aberta de um dia para o outro
   let dia = today();
   setInterval(() => {
