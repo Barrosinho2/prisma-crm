@@ -262,6 +262,19 @@ try {
   await page.getByText(/Saldo ajustado para/).waitFor()
   ok('ajustar saldo: conta fica com R$ 164,86', saldoConta('Conta principal') === 16486, String(saldoConta('Conta principal')))
 
+  // ---------- olho em cada cartão de saldo ----------
+  await page.goto(BASE + '/')
+  await page.getByText('Disponível para gastar').first().waitFor()
+  const olhos = await page.getByRole('button', { name: 'Ocultar valor', exact: true }).count()
+  await page.getByRole('button', { name: 'Ocultar valor', exact: true }).first().click()
+  const ocultosDash = await page.locator('main [aria-label="valor oculto"]').count()
+  ok('olho: dashboard tem botão nos cartões de saldo e oculta só aquele cartão', olhos >= 2 && ocultosDash >= 1 && (await page.getByRole('button', { name: 'Ocultar valor', exact: true }).count()) === olhos - 1, `olhos=${olhos} ocultos=${ocultosDash}`)
+  await page.getByRole('button', { name: 'Mostrar valor', exact: true }).first().click()
+  await page.goto(BASE + '/contas')
+  await page.getByText('Patrimônio em contas').waitFor(); await page.waitForTimeout(500)
+  const nOlhos = await page.getByRole('button', { name: 'Ocultar valor', exact: true }).count()
+  ok('olho: contas têm botão em cada saldo', nOlhos >= 5, String(nOlhos))
+
   // ---------- Teste 8: todas as telas em 3 tamanhos ----------
   const rotas = ['/', '/transacoes', '/contas', '/cartoes', '/a-pagar', '/orcamentos', '/metas', '/calendario', '/relatorios', '/configuracoes']
   const tamanhos = [['desktop', { width: 1440, height: 900 }], ['tablet', { width: 820, height: 1180 }], ['celular', { width: 390, height: 844 }]]

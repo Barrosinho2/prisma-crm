@@ -9,7 +9,7 @@ import {
 } from '../lib/motor'
 import { dataBR, diasEntre, fimMes, inicioMes, mesCurto, nomeMes, somaMeses } from '../lib/formato'
 import { Cabecalho, useNovaTransacao } from '../components/Layout'
-import { Abas, Barra, Botao, Dica, Etiqueta, IconeCategoria, NumeroAnimado, Painel, TituloPainel, Valor, Vazio, cn } from '../components/ui'
+import { Abas, Barra, BotaoOlho, Botao, Dica, Etiqueta, IconeCategoria, NumeroAnimado, Painel, TituloPainel, Valor, Vazio, cn, useOculto } from '../components/ui'
 import { CORES_GRAF, DicaGrafico, eixo, useFmtEixo } from '../components/Graficos'
 import { ConfirmarModal } from '../components/Formularios'
 import type { Lancamento } from '../lib/tipos'
@@ -26,6 +26,8 @@ export function Dashboard() {
   })
   const [escolher, setEscolher] = useState(false)
   const oculto = !!banco.config?.ocultar_valores
+  const [ocDisp, altDisp] = useOculto('disponivel')
+  const [ocSaldo, altSaldo] = useOculto('saldo-disponivel')
 
   const d = useMemo(() => {
     const s = saldos(banco)
@@ -97,8 +99,9 @@ export function Dashboard() {
             <div className="rotulo flex items-center gap-2 text-[#E4CBD2]">
               Disponível para gastar
               <Dica texto="Saldo das contas de uso livre, menos contas a pagar e faturas que vencem até o fim do mês, menos o que está separado em metas. Receitas ainda não recebidas não entram." />
+              <BotaoOlho claro oculto={ocDisp} alternar={altDisp} className="relative z-10 ml-auto" />
             </div>
-            <NumeroAnimado cents={d.disp.valor} className={cn('titulo mt-2 block text-[40px] leading-none sm:text-[46px]', d.disp.valor < 0 && 'text-[#F2B8B8]')} />
+            <NumeroAnimado ocultar={ocDisp} cents={d.disp.valor} className={cn('titulo mt-2 block text-[40px] leading-none sm:text-[46px]', d.disp.valor < 0 && 'text-[#F2B8B8]')} />
             <p className="mt-2 text-[13px] text-[#CDB9BF]">até {dataBR(fimMes(hoje))}</p>
             <div className="mt-6 space-y-2 border-t border-white/10 pt-4 text-[13px]">
               {[
@@ -109,7 +112,7 @@ export function Dashboard() {
               ].map(([r, v, s]) => (
                 <div key={r as string} className="flex items-center justify-between text-[#E9DCDF]">
                   <span>{r as string}</span>
-                  <Valor cents={(v as number) * (s as number)} sinal={(s as number) < 0 && (v as number) > 0} className="text-marfim" />
+                  <Valor ocultar={ocDisp} cents={(v as number) * (s as number)} sinal={(s as number) < 0 && (v as number) > 0} className="text-marfim" />
                 </div>
               ))}
             </div>
@@ -121,9 +124,9 @@ export function Dashboard() {
             <Painel className="relative h-full p-5">
               <div className="flex items-center justify-between text-[13px] text-taupe">
                 <span className="rotulo flex items-center gap-1.5"><L.Landmark className="h-4 w-4 text-vinho-suave" strokeWidth={1.6} />Saldo disponível</span>
-                <button onClick={() => setEscolher(v => !v)} className="rounded-lg p-1 hover:bg-creme" aria-label="Escolher contas" title="Escolher contas"><L.SlidersHorizontal className="h-3.5 w-3.5" /></button>
+                <span className="flex items-center gap-0.5"><BotaoOlho oculto={ocSaldo} alternar={altSaldo} /><button onClick={() => setEscolher(v => !v)} className="grid h-7 w-7 place-items-center rounded-lg hover:bg-creme" aria-label="Escolher contas" title="Escolher contas"><L.SlidersHorizontal className="h-3.5 w-3.5" /></button></span>
               </div>
-              <NumeroAnimado cents={d.saldoSel} className="cifra mt-3 block text-[25px] leading-tight sm:text-[28px]" />
+              <NumeroAnimado ocultar={ocSaldo} cents={d.saldoSel} className="cifra mt-3 block text-[25px] leading-tight sm:text-[28px]" />
               <p className="mt-1.5 text-xs text-taupe">{d.sel.length === d.ativas.length ? `Todas as ${d.ativas.length} contas` : `${d.sel.length} de ${d.ativas.length} contas`}</p>
               {escolher && (<>
                 <div className="fixed inset-0 z-20" onClick={() => setEscolher(false)} />

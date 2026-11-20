@@ -6,7 +6,7 @@ import { CONTAS_LIVRES, saldos } from '../lib/motor'
 import { dataBR } from '../lib/formato'
 import { TIPOS_CONTA, type Banco, type Conta } from '../lib/tipos'
 import { Cabecalho, useNovaTransacao } from '../components/Layout'
-import { Botao, Etiqueta, Modal, NumeroAnimado, Painel, TituloPainel, Valor, Vazio, cn, useAcao, useAvisos } from '../components/ui'
+import { BotaoOlho, Botao, Etiqueta, Modal, NumeroAnimado, Painel, TituloPainel, Valor, Vazio, cn, useAcao, useAvisos, useOculto } from '../components/ui'
 import { ContaModal } from '../components/Formularios'
 
 const ICONE_TIPO = { corrente: L.Landmark, digital: L.Smartphone, poupanca: L.PiggyBank, dinheiro: L.Banknote, reserva: L.ShieldCheck }
@@ -60,13 +60,9 @@ export default function Contas() {
         acoes={<><Botao icone={L.ArrowLeftRight} onClick={() => nova('transferencia')}>Transferir</Botao><Botao icone={L.Plus} variante="suave" onClick={() => setModal({ aberto: true, editar: null })}>Nova conta</Botao></>} />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Painel className="bg-vinho-escuro p-5 text-marfim sm:col-span-1">
-          <p className="text-[13px] text-[#E4CBD2]">Patrimônio em contas</p>
-          <NumeroAnimado cents={total} className="titulo mt-2 block text-[32px]" />
-          <p className="mt-1 text-xs text-[#CDB9BF]">{ativas.length} {ativas.length === 1 ? 'conta ativa' : 'contas ativas'}</p>
-        </Painel>
-        <Painel className="p-5"><p className="text-[13px] text-taupe">Em contas de uso livre</p><NumeroAnimado cents={livre} className="cifra mt-2 block text-[26px]" /><p className="mt-1 text-xs text-taupe">corrente, digital, poupança e espécie</p></Painel>
-        <Painel className="p-5"><p className="text-[13px] text-taupe">Em contas de reserva</p><NumeroAnimado cents={reserva} className="cifra mt-2 block text-[26px]" /><p className="mt-1 text-xs text-taupe">fora do disponível para gastar</p></Painel>
+        <CartaoResumo chave="patrimonio" escuro rotulo="Patrimônio em contas" cents={total} nota={`${ativas.length} ${ativas.length === 1 ? 'conta ativa' : 'contas ativas'}`} />
+        <CartaoResumo chave="contas-livres" rotulo="Em contas de uso livre" cents={livre} nota="corrente, digital, poupança e espécie" />
+        <CartaoResumo chave="contas-reserva" rotulo="Em contas de reserva" cents={reserva} nota="fora do disponível para gastar" />
       </div>
 
       {ativas.length === 0 ? (
@@ -91,10 +87,8 @@ export default function Contas() {
                       <BotaoIcone i={L.Trash2} r="Excluir" f={() => apagar(c)} />
                     </div>
                   </div>
-                  <Valor cents={v} className={cn('cifra mt-6 block text-[27px]', v < 0 && 'text-despesa')} />
-                  <div className="mt-1 flex items-center justify-between text-xs text-taupe">
-                    <span>Saldo inicial <Valor cents={c.saldo_inicial_cents} /> em {dataBR(c.data_saldo_inicial)}</span>
-                  </div>
+                  <SaldoConta id={c.id} cents={v} inicial={c.saldo_inicial_cents} desde={c.data_saldo_inicial} />
+
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Botao tamanho="sm" icone={L.SlidersHorizontal} onClick={() => setModal({ aberto: true, editar: c })}>Ajustar saldo</Botao>
                     <Botao tamanho="sm" variante="fantasma" onClick={() => setHistorico(c)}>Ver movimentações</Botao>
@@ -157,4 +151,25 @@ export default function Contas() {
 
 function BotaoIcone({ i: Ic, r, f }: { i: L.LucideIcon; r: string; f: () => void }) {
   return <button onClick={f} title={r} aria-label={r} className="grid h-8 w-8 place-items-center rounded-lg text-taupe hover:bg-creme hover:text-carvao"><Ic className="h-4 w-4" /></button>
+}
+
+function CartaoResumo({ chave, rotulo, cents, nota, escuro }: { chave: string; rotulo: string; cents: number; nota: string; escuro?: boolean }) {
+  const [oculto, alternar] = useOculto(chave)
+  return (
+    <Painel className={cn('p-5', escuro && 'bg-vinho-escuro text-marfim')}>
+      <div className="flex items-center justify-between"><p className={cn('text-[13px]', escuro ? 'text-[#E4CBD2]' : 'text-taupe')}>{rotulo}</p><BotaoOlho claro={escuro} oculto={oculto} alternar={alternar} /></div>
+      <NumeroAnimado ocultar={oculto} cents={cents} className={cn('mt-2 block', escuro ? 'titulo text-[32px]' : 'cifra text-[26px]')} />
+      <p className={cn('mt-1 text-xs', escuro ? 'text-[#CDB9BF]' : 'text-taupe')}>{nota}</p>
+    </Painel>
+  )
+}
+function SaldoConta({ id, cents, desde }: { id: string; cents: number; inicial?: number; desde: string }) {
+  const [oculto, alternar] = useOculto('conta:' + id)
+  return (<>
+    <div className="mt-6 flex items-center gap-2">
+      <Valor ocultar={oculto} cents={cents} className={cn('cifra block text-[27px]', cents < 0 && 'text-despesa')} />
+      <BotaoOlho oculto={oculto} alternar={alternar} />
+    </div>
+    <p className="mt-1 text-xs text-taupe">Acompanhada desde {dataBR(desde)}</p>
+  </>)
 }

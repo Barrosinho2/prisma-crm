@@ -79,15 +79,52 @@ export function TituloPainel({ titulo, sub, acao }: { titulo: ReactNode; sub?: R
 }
 
 // ---------------------------------------------------------------- valores
-export function Valor({ cents, className, sinal, curto }: { cents: number; className?: string; sinal?: boolean; curto?: boolean }) {
+// ---------- ocultar um valor específico (olhinho em cada cartão de saldo) ----------
+const CHAVE_OCULTOS = 'fin:ocultos'
+function lerOcultos(): string[] {
+  try { return JSON.parse(localStorage.getItem(CHAVE_OCULTOS) ?? '[]') } catch { return [] }
+}
+/** Estado de ocultação de um cartão. Fica salvo no aparelho e sincroniza entre os cartões abertos. */
+export function useOculto(chave: string): [boolean, () => void] {
+  const [lista, setLista] = useState<string[]>(lerOcultos)
+  useEffect(() => {
+    const atualizar = () => setLista(lerOcultos())
+    window.addEventListener('fin:ocultos', atualizar); window.addEventListener('storage', atualizar)
+    return () => { window.removeEventListener('fin:ocultos', atualizar); window.removeEventListener('storage', atualizar) }
+  }, [])
+  const alternar = useCallback(() => {
+    const atual = lerOcultos()
+    const nova = atual.includes(chave) ? atual.filter(k => k !== chave) : [...atual, chave]
+    try { localStorage.setItem(CHAVE_OCULTOS, JSON.stringify(nova)) } catch { /* sem armazenamento */ }
+    setLista(nova)
+    window.dispatchEvent(new Event('fin:ocultos'))
+  }, [chave])
+  return [lista.includes(chave), alternar]
+}
+/** Botão de olho para mostrar/ocultar o valor de um cartão. */
+export function BotaoOlho({ oculto, alternar, claro, className }: { oculto: boolean; alternar: () => void; claro?: boolean; className?: string }) {
   const { banco } = useDados()
-  const oculto = banco.config?.ocultar_valores
+  const global = !!banco.config?.ocultar_valores
+  const escondido = oculto || global
+  return (
+    <button type="button" onClick={alternar} disabled={global} aria-pressed={escondido}
+      aria-label={escondido ? 'Mostrar valor' : 'Ocultar valor'} title={global ? 'Todos os valores estão ocultos (botão do menu)' : escondido ? 'Mostrar valor' : 'Ocultar valor'}
+      className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-lg transition disabled:opacity-50',
+        claro ? 'text-[#E4CBD2] hover:bg-white/10 hover:text-white' : 'text-taupe hover:bg-creme hover:text-carvao', className)}>
+      {escondido ? <L.EyeOff className="h-3.5 w-3.5" /> : <L.Eye className="h-3.5 w-3.5" />}
+    </button>
+  )
+}
+
+export function Valor({ cents, className, sinal, curto, ocultar }: { cents: number; className?: string; sinal?: boolean; curto?: boolean; ocultar?: boolean }) {
+  const { banco } = useDados()
+  const oculto = banco.config?.ocultar_valores || ocultar
   if (oculto) return <span className={cn('num tracking-widest', className)} aria-label="valor oculto">R$ ••••</span>
   const txt = reais(Math.abs(cents))
   const pre = sinal ? (cents > 0 ? '+ ' : cents < 0 ? '− ' : '') : cents < 0 ? '− ' : ''
   return <span className={cn('num whitespace-nowrap', className)}>{pre}{curto ? txt.replace(/,00$/, '') : txt}</span>
 }
-export function NumeroAnimado({ cents, className }: { cents: number; className?: string }) {
+export function NumeroAnimado({ cents, className, ocultar }: { cents: number; className?: string; ocultar?: boolean }) {
   const { banco } = useDados()
   const mv = useMotionValue(cents)
   const txt = useTransform(mv, v => (cents < 0 ? '− ' : '') + reais(Math.abs(Math.round(v))))
@@ -97,7 +134,7 @@ export function NumeroAnimado({ cents, className }: { cents: number; className?:
     const c = animate(mv, cents, { duration: 0.6, ease: [0.22, 1, 0.36, 1] })
     return () => c.stop()
   }, [cents, mv])
-  if (banco.config?.ocultar_valores) return <span className={cn('num tracking-widest', className)}>R$ ••••</span>
+  if (banco.config?.ocultar_valores || ocultar) return <span className={cn('num tracking-widest', className)} aria-label="valor oculto">R$ ••••</span>
   return <motion.span className={cn('num whitespace-nowrap', className)}>{txt}</motion.span>
 }
 
