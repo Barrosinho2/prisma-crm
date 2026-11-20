@@ -7,6 +7,7 @@ import { useDados } from '../lib/dados'
 import { supabase } from '../lib/supabase'
 import { dataLonga, nomeMes, somaMeses, inicioMes } from '../lib/formato'
 import { TransacaoModal, type TipoNova } from './Formularios'
+import { ProtecaoErros } from './ProtecaoErros'
 
 export const NAV = [
   { to: '/', r: 'Dashboard', i: L.LayoutDashboard },
@@ -108,11 +109,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className={cn('min-h-dvh transition-[padding] duration-300', recolhida ? 'lg:pl-[76px]' : 'lg:pl-[256px]')}>
         <main id="conteudo" className="mx-auto max-w-[1360px] px-4 pb-32 pt-4 sm:px-6 lg:px-10 lg:pb-16 lg:pt-8">
-          <AnimatePresence mode="wait">
-            <motion.div key={loc.pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}>
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          {/* animação só de entrada, em CSS: nunca deixa a página presa invisível */}
+          <div key={loc.pathname} className="entrada-pagina">
+            <ProtecaoErros>{children}</ProtecaoErros>
+          </div>
         </main>
       </div>
 

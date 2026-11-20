@@ -50,6 +50,9 @@
   background-size: 200% 100%;
   animation: brilho 1.4s ease-in-out infinite;
 }
+/* entrada suave das páginas: termina sempre visível, mesmo se interrompida */
+.entrada-pagina { animation: entrada-pagina .32s cubic-bezier(.22,1,.36,1) both; }
+@keyframes entrada-pagina { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes brilho { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 @media (prefers-reduced-motion: reduce) {

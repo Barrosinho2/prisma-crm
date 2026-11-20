@@ -25,6 +25,19 @@ const Calendario = lazy(() => import('./pages/Calendario'))
 const Relatorios = lazy(() => import('./pages/Relatorios'))
 const Configuracoes = lazy(() => import('./pages/Configuracoes'))
 
+// depois que o painel abre, já baixa as outras telas: a navegação fica instantânea
+// e uma atualização do site não deixa telas sem arquivo
+const paginas = [
+  () => import('./pages/Transacoes'), () => import('./pages/Contas'), () => import('./pages/Cartoes'), () => import('./pages/APagar'),
+  () => import('./pages/Orcamentos'), () => import('./pages/Metas'), () => import('./pages/Calendario'), () => import('./pages/Relatorios'),
+  () => import('./pages/Configuracoes'),
+]
+function preCarregar() {
+  const ir = () => paginas.forEach(f => f().catch(() => {}))
+  if ('requestIdleCallback' in window) (window as unknown as { requestIdleCallback: (f: () => void) => void }).requestIdleCallback(ir)
+  else setTimeout(ir, 1500)
+}
+
 function Carregando() {
   return (
     <div className="space-y-6">
@@ -37,6 +50,7 @@ function Carregando() {
 
 function Rotas() {
   const { carregando, erro, recarregar, banco } = useDados()
+  useEffect(() => { if (!carregando) preCarregar() }, [carregando])
   if (carregando) return <Layout><Carregando /></Layout>
   if (erro && !banco.config && !banco.contas.length)
     return (
