@@ -94,7 +94,7 @@ export function Dashboard() {
             <svg className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 opacity-[0.12]" viewBox="0 0 200 200" aria-hidden>
               <circle cx="100" cy="100" r="98" fill="none" stroke="#F8F5F0" /><circle cx="100" cy="100" r="70" fill="none" stroke="#F8F5F0" /><circle cx="100" cy="100" r="42" fill="none" stroke="#F8F5F0" />
             </svg>
-            <div className="flex items-center gap-2 text-[13px] text-[#E4CBD2]">
+            <div className="rotulo flex items-center gap-2 text-[#E4CBD2]">
               Disponível para gastar
               <Dica texto="Saldo das contas de uso livre, menos contas a pagar e faturas que vencem até o fim do mês, menos o que está separado em metas. Receitas ainda não recebidas não entram." />
             </div>
@@ -120,10 +120,10 @@ export function Dashboard() {
           <motion.div {...entrada(2)}>
             <Painel className="relative h-full p-5">
               <div className="flex items-center justify-between text-[13px] text-taupe">
-                <span className="flex items-center gap-1.5"><L.Landmark className="h-4 w-4 text-vinho-suave" strokeWidth={1.6} />Saldo disponível</span>
+                <span className="rotulo flex items-center gap-1.5"><L.Landmark className="h-4 w-4 text-vinho-suave" strokeWidth={1.6} />Saldo disponível</span>
                 <button onClick={() => setEscolher(v => !v)} className="rounded-lg p-1 hover:bg-creme" aria-label="Escolher contas" title="Escolher contas"><L.SlidersHorizontal className="h-3.5 w-3.5" /></button>
               </div>
-              <NumeroAnimado cents={d.saldoSel} className="titulo mt-3 block text-[26px] leading-tight sm:text-[30px]" />
+              <NumeroAnimado cents={d.saldoSel} className="cifra mt-3 block text-[25px] leading-tight sm:text-[28px]" />
               <p className="mt-1.5 text-xs text-taupe">{d.sel.length === d.ativas.length ? `Todas as ${d.ativas.length} contas` : `${d.sel.length} de ${d.ativas.length} contas`}</p>
               {escolher && (<>
                 <div className="fixed inset-0 z-20" onClick={() => setEscolher(false)} />
@@ -207,7 +207,7 @@ export function Dashboard() {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-                    <div><p className="text-[11px] text-taupe">Total</p><Valor cents={totalCat} curto className="titulo text-lg" /></div>
+                    <div><p className="text-[11px] text-taupe">Total</p><Valor cents={totalCat} curto className="cifra text-lg" /></div>
                   </div>
                 </div>
                 <ul className="mt-4 space-y-2">
@@ -318,10 +318,10 @@ export function Dashboard() {
 function Indicador({ icone: Ic, rotulo, cents, cor, rodape, dica }: { icone: L.LucideIcon; rotulo: string; cents: number; cor: string; rodape?: React.ReactNode; dica?: string }) {
   return (
     <Painel className="h-full p-5">
-      <div className="flex items-center gap-1.5 text-[13px] text-taupe">
+      <div className="rotulo flex items-center gap-1.5 text-taupe">
         <Ic className={cn('h-4 w-4', cor)} strokeWidth={1.8} />{rotulo}{dica && <Dica texto={dica} />}
       </div>
-      <NumeroAnimado cents={cents} className="titulo mt-3 block text-[26px] leading-tight sm:text-[30px]" />
+      <NumeroAnimado cents={cents} className="cifra mt-3 block text-[25px] leading-tight sm:text-[28px]" />
       {rodape && <div className="mt-1.5 text-xs text-taupe">{rodape}</div>}
     </Painel>
   )

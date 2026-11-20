@@ -85,7 +85,7 @@ export default function Calendario() {
         <Painel className="lg:col-span-4">
           <div className="border-b border-borda px-5 py-4">
             <p className="text-xs uppercase tracking-wide text-taupe">Dia selecionado</p>
-            <p className="titulo mt-0.5 text-lg first-letter:uppercase">{dataLonga(sel)}</p>
+            <p className="mt-0.5 text-[17px] font-semibold first-letter:uppercase">{dataLonga(sel)}</p>
           </div>
           <AnimatePresence mode="wait">
             <motion.div key={sel} initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>

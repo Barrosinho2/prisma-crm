@@ -274,7 +274,7 @@ export function orcamentosDoMes(b: Banco, mesIso: string) {
 
 // ---------------------------------------------------------------- despesas essenciais
 /** Média mensal das categorias essenciais nos últimos meses completos (até 3). */
-export function essenciaisMensais(b: Banco, hojeIso: string): { valor: number | null; fonte: 'configurado' | 'historico' | 'recorrencias' | null; meses: number } {
+export function essenciaisMensais(b: Banco, hojeIso: string): { valor: number | null; fonte: 'configurado' | 'historico' | 'recorrencias' | 'mes_atual' | null; meses: number } {
   if (b.config?.essenciais_cents) return { valor: b.config.essenciais_cents, fonte: 'configurado', meses: 0 }
   const essenciais = new Set(b.categorias.filter(c => c.essencial).map(c => c.id))
   const primeiro = primeiroMovimento(b)
@@ -288,6 +288,8 @@ export function essenciaisMensais(b: Banco, hojeIso: string): { valor: number | 
   if (vals.length && vals.some(v => v > 0)) return { valor: Math.round(vals.reduce((a, v) => a + v, 0) / vals.length), fonte: 'historico', meses: vals.length }
   const rec = b.recorrencias.filter(r => r.ativa && r.tipo === 'despesa' && (r.essencial || (r.categoria_id && essenciais.has(r.categoria_id))))
   if (rec.length) return { valor: rec.reduce((a, r) => a + r.valor_cents, 0), fonte: 'recorrencias', meses: 0 }
+  const atual = consumo(b, inicioMes(hojeIso), hojeIso).filter(x => x.categoria_id && essenciais.has(x.categoria_id)).reduce((a, x) => a + x.valor, 0)
+  if (atual > 0) return { valor: atual, fonte: 'mes_atual', meses: 0 }
   return { valor: null, fonte: null, meses: 0 }
 }
 
@@ -600,15 +602,20 @@ export function totalParcelas(inicio: string, dia: number, fim: string): number 
   return Math.max(0, n)
 }
 /** Número da parcela de uma ocorrência (1 = primeira). */
-export function numeroParcela(r: Pick<Recorrencia, 'inicio' | 'dia'>, competencia: string): number {
+export function numeroParcela(r: Pick<Recorrencia, 'inicio' | 'dia' | 'parcelas_anteriores'>, competencia: string): number {
   const [a1, m1] = partes(primeiraOcorrencia(r.inicio, r.dia)), [a2, m2] = partes(competencia)
-  return (a2 - a1) * 12 + (m2 - m1) + 1
+  return (a2 - a1) * 12 + (m2 - m1) + 1 + (r.parcelas_anteriores ?? 0)
+}
+/** Total de parcelas de uma recorrência com prazo (inclui as pagas antes do sistema). */
+export function totalDaRecorrencia(r: Pick<Recorrencia, 'inicio' | 'dia' | 'fim' | 'parcelas_anteriores'>): number {
+  return r.fim ? totalParcelas(r.inicio, r.dia, r.fim) + (r.parcelas_anteriores ?? 0) : 0
 }
 export interface PrazoRecorrencia { total: number; pagas: number; faltam: number; ultima: string; encerrada: boolean }
 /** Andamento de uma recorrência com prazo. null = sem prazo (até cancelar). */
 export function prazoRecorrencia(b: Banco, r: Recorrencia): PrazoRecorrencia | null {
   if (!r.fim) return null
-  const total = totalParcelas(r.inicio, r.dia, r.fim)
-  const pagas = b.lancamentos.filter(l => l.recorrencia_id === r.id && l.status === 'efetivado').length
+  const antes = r.parcelas_anteriores ?? 0
+  const total = totalParcelas(r.inicio, r.dia, r.fim) + antes
+  const pagas = antes + b.lancamentos.filter(l => l.recorrencia_id === r.id && l.status === 'efetivado').length
   return { total, pagas, faltam: Math.max(0, total - pagas), ultima: diaNoMes(r.fim, r.dia) > r.fim ? diaNoMes(somaMeses(inicioMes(r.fim), -1), r.dia) : diaNoMes(r.fim, r.dia), encerrada: !r.ativa }
 }

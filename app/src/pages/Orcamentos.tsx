@@ -32,8 +32,8 @@ export default function Orcamentos() {
         <Painel className="p-5 lg:col-span-2">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div><p className="text-[13px] text-taupe">Usado do orçamento em {nomeMes(mesRef, false).toLowerCase()}</p>
-              <p className="mt-1"><Valor cents={usado} className="titulo text-[30px]" /> <span className="text-taupe">de <Valor cents={orcado} /></span></p></div>
-            <div className="text-right"><p className="text-[13px] text-taupe">Restante</p><Valor cents={orcado - usado} className={cn('titulo text-[22px]', orcado - usado < 0 && 'text-despesa')} /></div>
+              <p className="mt-1"><Valor cents={usado} className="cifra text-[30px]" /> <span className="text-taupe">de <Valor cents={orcado} /></span></p></div>
+            <div className="text-right"><p className="text-[13px] text-taupe">Restante</p><Valor cents={orcado - usado} className={cn('cifra text-[22px]', orcado - usado < 0 && 'text-despesa')} /></div>
           </div>
           <div className="relative mt-4">
             <Barra pct={orcado ? (usado / orcado) * 100 : 0} tom="auto" rotulo="Orçamento total" />

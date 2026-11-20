@@ -63,7 +63,7 @@ export default function Cartoes() {
               </div>
               <div className="relative mt-6">
                 <p className="text-[11px] uppercase tracking-wider text-white/55">Disponível</p>
-                <Valor cents={r.disponivel} className="titulo text-2xl" />
+                <Valor cents={r.disponivel} className="cifra text-2xl" />
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#E4CBD2]" style={{ width: `${Math.min(100, c.limite_cents ? (r.usado / c.limite_cents) * 100 : 0)}%` }} /></div>
                 <p className="mt-1.5 flex justify-between text-[11px] text-white/60"><span>fecha dia {c.dia_fechamento} · vence dia {c.dia_vencimento}</span><span>limite <Valor cents={c.limite_cents} curto /></span></p>
               </div>
@@ -78,7 +78,7 @@ export default function Cartoes() {
             <Painel className="p-5">
               <div className="flex items-start justify-between">
                 <div><p className="text-[13px] text-taupe">Fatura atual (aberta)</p>
-                  <Valor cents={resumo.atual?.total ?? 0} className="titulo mt-1 block text-[30px]" />
+                  <Valor cents={resumo.atual?.total ?? 0} className="cifra mt-1 block text-[30px]" />
                   <p className="text-xs text-taupe">fecha {dataBR(resumo.datasAtual.fechamento)} · vence {dataBR(resumo.datasAtual.vencimento)}</p>
                 </div>
                 <div className="flex gap-0.5">
@@ -151,7 +151,7 @@ export default function Cartoes() {
                   return (
                     <li key={c.id} className={cn('flex items-center gap-3 px-3 py-3', c.cancelada && 'opacity-50')}>
                       <IconeCategoria cor={cat?.cor ?? '#817678'} icone={cat?.icone ?? 'shopping-bag'} />
-                      <div className="min-w-0 flex-1"><p className={cn('truncate text-sm font-medium', c.cancelada && 'line-through')}>{c.descricao}</p><p className="text-xs text-taupe">{dataBR(c.data_compra)} · {c.parcelas > 1 ? `${c.parcelas}x de ` : 'à vista'}{c.parcelas > 1 && <Valor cents={Math.floor(c.valor_total_cents / c.parcelas)} />}{c.cancelada && ' · cancelada'}</p></div>
+                      <div className="min-w-0 flex-1"><p className={cn('truncate text-sm font-medium', c.cancelada && 'line-through')}>{c.descricao}</p><p className="text-xs text-taupe">{dataBR(c.data_compra)} · {c.parcelas > 1 ? `${c.parcelas}x de ` : 'à vista'}{c.parcelas > 1 && <Valor cents={Math.floor(c.valor_total_cents / c.parcelas)} />}{(c.parcelas_pagas_antes ?? 0) > 0 && ` · ${c.parcelas_pagas_antes} pagas antes`}{c.cancelada && ' · cancelada'}</p></div>
                       <Valor cents={c.valor_total_cents} className="text-sm font-medium" />
                     </li>
                   )

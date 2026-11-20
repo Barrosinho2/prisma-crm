@@ -63,8 +63,8 @@ export default function Metas() {
             <p className="flex items-center gap-1.5 text-sm font-medium">Despesas essenciais por mês
               <Dica texto="Usamos o valor que você configurou. Se não houver, a média dos últimos meses nas categorias marcadas como essenciais, ou a soma das despesas fixas essenciais." /></p>
             {ess.valor ? (<>
-              <Valor cents={ess.valor} className="titulo mt-1 block text-[26px]" />
-              <p className="text-xs text-taupe">{ess.fonte === 'configurado' ? 'valor configurado por você' : ess.fonte === 'historico' ? `média de ${ess.meses} ${ess.meses === 1 ? 'mês' : 'meses'} nas categorias essenciais` : 'soma das despesas fixas essenciais'}</p>
+              <Valor cents={ess.valor} className="cifra mt-1 block text-[26px]" />
+              <p className="text-xs text-taupe">{ess.fonte === 'configurado' ? 'valor configurado por você' : ess.fonte === 'mes_atual' ? 'gasto deste mês até agora nas categorias essenciais (fica mais preciso com o tempo)' : ess.fonte === 'historico' ? `média de ${ess.meses} ${ess.meses === 1 ? 'mês' : 'meses'} nas categorias essenciais` : 'soma das despesas fixas essenciais'}</p>
               <div className="mt-5 grid grid-cols-3 gap-2">
                 {[3, 6, 12].map(n => (
                   <button key={n} onClick={() => setMesesSug(n)} aria-pressed={mesesSug === n}
@@ -120,7 +120,7 @@ export default function Metas() {
                   <div className="mt-auto flex gap-2 pt-4">
                     <Botao tamanho="sm" variante="primario" icone={L.Plus} className="flex-1" onClick={() => setMov({ meta: m, tipo: 'aporte' })}>Guardar</Botao>
                     <Botao tamanho="sm" onClick={() => setMov({ meta: m, tipo: 'retirada' })} disabled={g <= 0}>Retirar</Botao>
-                    <Botao tamanho="sm" variante="fantasma" onClick={() => setHist(m)} aria-label="Histórico" title="Histórico"><L.History className="h-4 w-4" /></Botao>
+                    <Botao tamanho="sm" variante="fantasma" icone={L.History} onClick={() => setHist(m)}>Histórico</Botao>
                   </div>
                 </Painel>
               </motion.div>

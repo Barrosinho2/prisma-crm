@@ -69,6 +69,8 @@ export interface Recorrencia {
   ativa: boolean
   essencial: boolean
   obs: string | null
+  /** parcelas pagas antes do início no sistema */
+  parcelas_anteriores?: number
 }
 
 export interface Fatura {
@@ -88,6 +90,8 @@ export interface Compra {
   categoria_id: string | null
   obs: string | null
   cancelada: boolean
+  /** compra em andamento: parcelas pagas antes de usar o sistema */
+  parcelas_pagas_antes?: number
   criado_em?: string
 }
 

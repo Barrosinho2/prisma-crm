@@ -19,7 +19,7 @@ export function criarFalso({ email = 'rafael@teste.com', senha = 'senha-teste-12
     fin_contas: () => ({ saldo_inicial_cents: 0, data_saldo_inicial: HOJE(), cor: null, ordem: 0, arquivada: false }),
     fin_categorias: () => ({ icone: 'circle', cor: '#875364', ordem: 0, oculta: false, essencial: false }),
     fin_cartoes: () => ({ instituicao: null, conta_pagamento_id: null, cor: '#621F32', arquivado: false }),
-    fin_recorrencias: () => ({ categoria_id: null, conta_id: null, cartao_id: null, forma_pagamento: null, fim: null, ativa: true, essencial: false, obs: null }),
+    fin_recorrencias: () => ({ parcelas_anteriores: 0, categoria_id: null, conta_id: null, cartao_id: null, forma_pagamento: null, fim: null, ativa: true, essencial: false, obs: null }),
     fin_lancamentos: () => ({ data_efetiva: null, status: 'pendente', categoria_id: null, conta_id: null, cartao_id: null, compra_id: null, forma_pagamento: null, recorrencia_id: null, competencia: null, obs: null }),
     fin_transferencias: () => ({ descricao: null, cancelada: false }),
     fin_pagamentos_fatura: () => ({ cancelado: false }),
@@ -30,15 +30,15 @@ export function criarFalso({ email = 'rafael@teste.com', senha = 'senha-teste-12
   }
   const novo = (t, o) => ({ id: randomUUID(), user_id: uid, criado_em: new Date().toISOString(), ...(padroes[t]?.() ?? {}), ...o })
 
-  function registrarCompra({ p_id, p_cartao, p_descricao, p_total_cents, p_parcelas, p_data, p_categoria = null, p_obs = null }) {
+  function registrarCompra({ p_id, p_cartao, p_descricao, p_total_cents, p_parcelas, p_data, p_categoria = null, p_obs = null, p_ja_pagas = 0 }) {
     if (T('fin_compras').some(c => c.id === p_id)) return p_id
     const c = T('fin_cartoes').find(x => x.id === p_cartao)
     if (!c) throw { code: '22023', message: 'Cartão não encontrado.' }
-    T('fin_compras').push(novo('fin_compras', { id: p_id, cartao_id: p_cartao, descricao: p_descricao, valor_total_cents: p_total_cents, parcelas: p_parcelas, data_compra: p_data, categoria_id: p_categoria, obs: p_obs, cancelada: false }))
+    T('fin_compras').push(novo('fin_compras', { id: p_id, cartao_id: p_cartao, descricao: p_descricao, valor_total_cents: p_total_cents, parcelas: p_parcelas, data_compra: p_data, categoria_id: p_categoria, obs: p_obs, cancelada: false, parcelas_pagas_antes: p_ja_pagas }))
     let fech = diaNoMes(p_data, c.dia_fechamento)
     if (p_data >= fech) fech = diaNoMes(somaMeses(inicioMes(p_data), 1), c.dia_fechamento)
     const base = Math.floor(p_total_cents / p_parcelas), resto = p_total_cents - base * p_parcelas
-    for (let i = 0; i < p_parcelas; i++) {
+    for (let i = p_ja_pagas; i < p_parcelas; i++) {
       const m = somaMeses(inicioMes(fech), i)
       const f = diaNoMes(m, c.dia_fechamento)
       const v = c.dia_vencimento > c.dia_fechamento ? diaNoMes(m, c.dia_vencimento) : diaNoMes(somaMeses(m, 1), c.dia_vencimento)
@@ -78,6 +78,7 @@ export function criarFalso({ email = 'rafael@teste.com', senha = 'senha-teste-12
       return 1
     },
     fin_registrar_compra: registrarCompra,
+    fin_registrar_compra_em_andamento: registrarCompra,
     fin_confirmar({ p_id, p_data, p_valor_cents = null, p_conta = null }) {
       const l = T('fin_lancamentos').find(x => x.id === p_id)
       if (l.status === 'efetivado') return 'ja_efetivado'

@@ -65,8 +65,8 @@ export default function Contas() {
           <NumeroAnimado cents={total} className="titulo mt-2 block text-[32px]" />
           <p className="mt-1 text-xs text-[#CDB9BF]">{ativas.length} {ativas.length === 1 ? 'conta ativa' : 'contas ativas'}</p>
         </Painel>
-        <Painel className="p-5"><p className="text-[13px] text-taupe">Em contas de uso livre</p><NumeroAnimado cents={livre} className="titulo mt-2 block text-[28px]" /><p className="mt-1 text-xs text-taupe">corrente, digital, poupança e espécie</p></Painel>
-        <Painel className="p-5"><p className="text-[13px] text-taupe">Em contas de reserva</p><NumeroAnimado cents={reserva} className="titulo mt-2 block text-[28px]" /><p className="mt-1 text-xs text-taupe">fora do disponível para gastar</p></Painel>
+        <Painel className="p-5"><p className="text-[13px] text-taupe">Em contas de uso livre</p><NumeroAnimado cents={livre} className="cifra mt-2 block text-[26px]" /><p className="mt-1 text-xs text-taupe">corrente, digital, poupança e espécie</p></Painel>
+        <Painel className="p-5"><p className="text-[13px] text-taupe">Em contas de reserva</p><NumeroAnimado cents={reserva} className="cifra mt-2 block text-[26px]" /><p className="mt-1 text-xs text-taupe">fora do disponível para gastar</p></Painel>
       </div>
 
       {ativas.length === 0 ? (
@@ -91,7 +91,7 @@ export default function Contas() {
                       <BotaoIcone i={L.Trash2} r="Excluir" f={() => apagar(c)} />
                     </div>
                   </div>
-                  <Valor cents={v} className={cn('titulo mt-6 block text-[28px]', v < 0 && 'text-despesa')} />
+                  <Valor cents={v} className={cn('cifra mt-6 block text-[27px]', v < 0 && 'text-despesa')} />
                   <div className="mt-1 flex items-center justify-between text-xs text-taupe">
                     <span>Saldo inicial <Valor cents={c.saldo_inicial_cents} /> em {dataBR(c.data_saldo_inicial)}</span>
                   </div>

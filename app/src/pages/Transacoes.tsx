@@ -6,7 +6,7 @@ import { statusVisivel } from '../lib/motor'
 import { dataBR, fimMes, inicioMes, nomeMes, paraCentavos } from '../lib/formato'
 import { FORMAS, type Compra, type Lancamento } from '../lib/tipos'
 import { Cabecalho, useNovaTransacao } from '../components/Layout'
-import { Botao, Campo, Entrada, Etiqueta, IconeCategoria, Modal, Painel, Seletor, Valor, Vazio, cn, useAcao, useAvisos } from '../components/ui'
+import { Botao, Campo, Entrada, Etiqueta, IconeCategoria, MenuAcoes, Modal, Painel, Seletor, Valor, Vazio, cn, useAcao, useAvisos } from '../components/ui'
 import { ConfirmarModal, TransacaoModal } from '../components/Formularios'
 import { MenuExportar } from '../components/MenuExportar'
 
@@ -179,9 +179,9 @@ export default function Transacoes() {
             <Entrada value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por descrição, conta, categoria..." className="pl-10" aria-label="Buscar" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Entrada type="date" value={de} onChange={e => setDe(e.target.value)} className="h-10 w-auto" aria-label="De" />
-            <span className="text-taupe">–</span>
-            <Entrada type="date" value={ate} onChange={e => setAte(e.target.value)} className="h-10 w-auto" aria-label="Até" />
+            <div className="w-[150px]"><Entrada type="date" value={de} onChange={e => setDe(e.target.value)} className="h-10" aria-label="De" /></div>
+            <span className="text-taupe">até</span>
+            <div className="w-[150px]"><Entrada type="date" value={ate} onChange={e => setAte(e.target.value)} className="h-10" aria-label="Até" /></div>
             <Botao icone={L.SlidersHorizontal} onClick={() => setFiltros(v => !v)} aria-expanded={filtros}>
               Filtros{nFiltros > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-vinho px-1 text-[11px] text-marfim">{nFiltros}</span>}
             </Botao>
@@ -219,7 +219,7 @@ export default function Transacoes() {
             acao={todas.length ? <Botao onClick={() => { limpar(); setDe(''); setAte('') }}>Ver todo o período</Botao> : <Botao variante="primario" icone={L.Plus} onClick={() => nova()}>Nova transação</Botao>} />
         ) : (<>
           {/* tabela (tablet/desktop) */}
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-borda text-left text-[12px] uppercase tracking-wide text-taupe">
@@ -230,7 +230,7 @@ export default function Transacoes() {
                   <th className="hidden px-3 py-3 font-medium xl:table-cell">Forma</th>
                   <th className="px-3 py-3 font-medium">Situação</th>
                   <Th onClick={() => ord('valor')} ativo={ordem.k === 'valor'} asc={ordem.asc} direita>Valor</Th>
-                  <th className="w-[112px]" />
+                  <th className="w-[110px]"><span className="sr-only">Ações</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -256,7 +256,7 @@ export default function Transacoes() {
             </table>
           </div>
           {/* cartões (celular) */}
-          <ul className="divide-y divide-borda/70 md:hidden">
+          <ul className="divide-y divide-borda/70 lg:hidden">
             {filtradas.slice(0, limite).map(x => {
               const c = x.cat ? cats.get(x.cat) : null
               return (
@@ -301,14 +301,17 @@ function Acoes({ x, onEditar, onEditarCompra, onConfirmar, onExcluir, onDesfazer
   x: Linha; onEditar: (l: Lancamento) => void; onEditarCompra: (c: Compra) => void; onConfirmar: (l: Lancamento) => void; onExcluir: (x: Linha) => void; onDesfazer: (l: Lancamento) => void
 }) {
   if (x.status === 'cancelado') return null
-  const b = 'grid h-8 w-8 place-items-center rounded-lg text-taupe hover:bg-creme hover:text-carvao'
+  const l = x.lanc
   return (
-    <div className="flex justify-end gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
-      {x.lanc?.status === 'pendente' && <button className={cn(b, 'text-vinho')} onClick={() => onConfirmar(x.lanc!)} title={x.lanc.tipo === 'receita' ? 'Confirmar recebimento' : 'Marcar como pago'} aria-label="Confirmar"><L.Check className="h-4 w-4" /></button>}
-      {x.lanc?.status === 'efetivado' && <button className={b} onClick={() => onDesfazer(x.lanc!)} title="Desfazer confirmação" aria-label="Desfazer"><L.Undo2 className="h-4 w-4" /></button>}
-      {x.lanc && <button className={b} onClick={() => onEditar(x.lanc!)} title="Editar" aria-label="Editar"><L.Pencil className="h-4 w-4" /></button>}
-      {x.compra && <button className={b} onClick={() => onEditarCompra(x.compra!)} title="Editar" aria-label="Editar"><L.Pencil className="h-4 w-4" /></button>}
-      {(x.lanc || x.compra || x.cancelavel) && <button className={cn(b, 'hover:text-despesa')} onClick={() => onExcluir(x)} title="Excluir / cancelar" aria-label="Excluir"><L.Trash2 className="h-4 w-4" /></button>}
+    <div className="flex items-center justify-end gap-1">
+      {l?.status === 'pendente' && (
+        <button className="h-8 rounded-lg px-2.5 text-xs font-medium text-vinho hover:bg-vinho-claro" onClick={() => onConfirmar(l)}>{l.tipo === 'receita' ? 'Receber' : 'Pagar'}</button>
+      )}
+      <MenuAcoes acoes={[
+        { r: 'Editar', i: L.Pencil, f: () => (l ? onEditar(l) : x.compra && onEditarCompra(x.compra)), oculto: !l && !x.compra },
+        { r: 'Desfazer confirmação', i: L.Undo2, f: () => l && onDesfazer(l), oculto: l?.status !== 'efetivado' },
+        { r: l?.status === 'pendente' && !l.recorrencia_id ? 'Excluir' : x.compra ? 'Cancelar compra' : 'Cancelar', i: L.Trash2, perigo: true, f: () => onExcluir(x), oculto: !l && !x.compra && !x.cancelavel },
+      ]} />
     </div>
   )
 }

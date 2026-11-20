@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import * as L from 'lucide-react'
 import { useDados } from '../lib/dados'
-import { infoFaturas, numeroParcela, prazoRecorrencia, statusVisivel, totalParcelas } from '../lib/motor'
+import { infoFaturas, numeroParcela, prazoRecorrencia, statusVisivel, totalDaRecorrencia } from '../lib/motor'
 import { dataBR, diasEntre, fimMes, inicioMes, mesCurto, nomeMes, somaDias } from '../lib/formato'
 import type { Lancamento, Recorrencia } from '../lib/tipos'
 import { Cabecalho } from '../components/Layout'
-import { Abas, Botao, Etiqueta, IconeCategoria, Painel, Valor, Vazio, cn, useAcao, useAvisos } from '../components/ui'
+import { Abas, Botao, Etiqueta, IconeCategoria, MenuAcoes, Painel, Valor, Vazio, cn, useAcao, useAvisos } from '../components/ui'
 import { ConfirmarModal, PagarFaturaModal, RecorrenciaModal, TransacaoModal } from '../components/Formularios'
 
 type Aba = 'pendentes' | 'receitas' | 'pagas' | 'recorrentes'
@@ -43,7 +43,7 @@ export default function APagar() {
     const st = statusVisivel(l, hoje)
     const dias = diasEntre(hoje, l.data_prevista)
     const r = l.recorrencia_id ? recPorId.get(l.recorrencia_id) : undefined
-    const parcela = r?.fim && l.competencia ? `parcela ${numeroParcela(r, l.competencia)} de ${totalParcelas(r.inicio, r.dia, r.fim)} · ` : ''
+    const parcela = r?.fim && l.competencia ? `parcela ${numeroParcela(r, l.competencia)} de ${totalDaRecorrencia(r)} · ` : ''
     const quando = l.status === 'efetivado' ? `${l.tipo === 'receita' ? 'recebido' : 'pago'} em ${dataBR(l.data_efetiva)}`
       : st === 'vencido' ? `venceu há ${-dias} ${-dias === 1 ? 'dia' : 'dias'}` : dias === 0 ? 'vence hoje' : dias === 1 ? 'amanhã' : `em ${dias} dias`
     return (
@@ -53,7 +53,7 @@ export default function APagar() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 truncate text-sm font-medium">{l.descricao}{l.recorrencia_id && <L.Repeat className="h-3.5 w-3.5 shrink-0 text-taupe" aria-label="recorrente" />}</p>
-          <p className="truncate text-xs text-taupe">
+          <p className="text-xs leading-relaxed text-taupe sm:truncate">
             {parcela && <span className="font-medium text-carvao/80">{parcela}</span>}{c && <span>{c.nome} · </span>}{l.cartao_id ? `cartão ${cartoes.get(l.cartao_id)}` : contas.get(l.conta_id ?? '') ?? 'sem conta'} · <span className={st === 'vencido' ? 'font-medium text-despesa' : ''}>{quando}</span>
           </p>
         </div>
@@ -62,12 +62,15 @@ export default function APagar() {
         <div className="flex w-full justify-end gap-1 sm:w-auto">
           {l.status === 'pendente' ? (<>
             <Botao tamanho="sm" variante="primario" icone={L.Check} onClick={() => umClique(l)} title={l.tipo === 'receita' ? 'Confirmar recebimento com a data de hoje' : 'Marcar como pago hoje'}>{l.tipo === 'receita' ? 'Recebido' : 'Pago'}</Botao>
-            <Botao tamanho="icone" variante="fantasma" onClick={() => setConf(l)} title="Outra data ou valor" aria-label="Confirmar com outra data ou valor"><L.CalendarClock className="h-4 w-4" /></Botao>
-            <Botao tamanho="icone" variante="fantasma" onClick={() => setEditar(l)} title="Editar" aria-label="Editar"><L.Pencil className="h-4 w-4" /></Botao>
-            <Botao tamanho="icone" variante="fantasma" title="Cancelar esta cobrança" aria-label="Cancelar" onClick={async () => {
-              if (await confirmar({ titulo: 'Cancelar esta cobrança?', texto: l.recorrencia_id ? 'Só esta ocorrência é cancelada; as próximas continuam.' : 'Ela sai das contas a pagar.', botao: 'Cancelar cobrança', perigo: true }))
-                executar(() => atualizar('lancamentos', l.id, { status: 'cancelado' }), 'Cobrança cancelada.')
-            }}><L.X className="h-4 w-4" /></Botao>
+            <MenuAcoes acoes={[
+              { r: l.tipo === 'receita' ? 'Recebido com outra data ou valor' : 'Pago com outra data ou valor', i: L.CalendarClock, f: () => setConf(l) },
+              { r: 'Editar', i: L.Pencil, f: () => setEditar(l) },
+              { r: 'Editar recorrência', i: L.Repeat, f: () => r && setRec(r), oculto: !r },
+              { r: l.tipo === 'receita' ? 'Cancelar este recebimento' : 'Cancelar esta cobrança', i: L.X, perigo: true, f: async () => {
+                if (await confirmar({ titulo: l.tipo === 'receita' ? 'Cancelar este recebimento?' : 'Cancelar esta cobrança?', texto: l.recorrencia_id ? 'Só esta ocorrência é cancelada; as próximas continuam.' : 'Ela sai das contas a pagar.', botao: 'Cancelar', perigo: true }))
+                  executar(() => atualizar('lancamentos', l.id, { status: 'cancelado' }), 'Cancelado.')
+              } },
+            ]} />
           </>) : (
             <Botao tamanho="sm" variante="fantasma" icone={L.Undo2} onClick={() => executar(() => rpc('fin_desfazer', { p_id: l.id }), 'Voltou para pendente.')}>Desfazer</Botao>
           )}
@@ -93,10 +96,10 @@ export default function APagar() {
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Resumo r="Atrasadas" v={somaV(vencidas)} n={vencidas.length} tom="text-despesa" />
+        <Resumo r="Atrasadas" v={somaV(vencidas)} n={vencidas.length} tom={vencidas.length ? 'text-despesa' : undefined} />
         <Resumo r="A vencer neste mês" v={somaV(aVencerMes)} n={aVencerMes.length} />
         <Resumo r="Faturas a pagar" v={faturas.reduce((a, f) => a + f.restante, 0)} n={faturas.length} />
-        <Resumo r={`Pagas em ${mesCurto(mesRef)}`} v={somaV(pagasMes)} n={pagasMes.length} tom="text-receita" />
+        <Resumo r={`Pagas em ${mesCurto(mesRef)}`} v={somaV(pagasMes)} n={pagasMes.length} tom={pagasMes.length ? 'text-receita' : undefined} />
       </div>
 
       <Abas className="mb-4" valor={aba} aoMudar={setAba} opcoes={[
@@ -151,7 +154,7 @@ export default function APagar() {
                   </div>
                   <Etiqueta tom={!r.ativa ? 'neutro' : r.tipo === 'receita' ? 'receita' : 'vinho'}>{!r.ativa ? 'encerrada' : r.tipo === 'receita' ? 'receita' : 'despesa'}</Etiqueta>
                   <Valor cents={r.valor_cents} className="w-24 text-right text-sm font-semibold" />
-                  <Botao tamanho="icone" variante="fantasma" onClick={() => setRec(r)} title="Editar recorrência" aria-label="Editar recorrência"><L.Pencil className="h-4 w-4" /></Botao>
+                  <Botao tamanho="sm" variante="secundario" onClick={() => setRec(r)} aria-label="Editar recorrência">Editar</Botao>
                 </li>
               )
             })}
@@ -173,8 +176,8 @@ export default function APagar() {
 function Resumo({ r, v, n, tom }: { r: string; v: number; n: number; tom?: string }) {
   return (
     <Painel className="p-4 sm:p-5">
-      <p className="text-[13px] text-taupe">{r}</p>
-      <Valor cents={v} className={cn('titulo mt-1.5 block text-[22px] sm:text-[26px]', tom)} />
+      <p className="rotulo text-taupe">{r}</p>
+      <Valor cents={v} className={cn('cifra mt-1.5 block text-[22px] sm:text-[25px]', tom)} />
       <p className="text-xs text-taupe">{n} {n === 1 ? 'item' : 'itens'}</p>
     </Painel>
   )

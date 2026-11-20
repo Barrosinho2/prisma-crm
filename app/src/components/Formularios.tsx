@@ -54,7 +54,8 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
   const [cartao, setCartao] = useState('')
   const [parcelas, setParcelas] = useState(1)
   const [recorrente, setRecorrente] = useState(false)
-  const [fimRec, setFimRec] = useState<string | null>(null)
+  const [prazo, setPrazo] = useState<Prazo>({ fim: null, anteriores: 0 })
+  const [jaPagasCartao, setJaPagasCartao] = useState(0)
   const [pagarNoCartao, setPagarNoCartao] = useState(false)
   const [essencial, setEssencial] = useState(false)
   const [obs, setObs] = useState('')
@@ -72,11 +73,12 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
     }
     setTipo(tipoInicial); setDescricao(''); setValor(null); setData(hoje); setEfetivado(!pendenteInicial)
     setConta(contas[0]?.id ?? ''); setDestino(contas[1]?.id ?? ''); setCategoria(''); setForma('')
-    setCartao(cartoes[0]?.id ?? ''); setParcelas(1); setRecorrente(false); setFimRec(null); setPagarNoCartao(false); setEssencial(false); setObs('')
+    setCartao(cartoes[0]?.id ?? ''); setParcelas(1); setRecorrente(false); setPrazo({ fim: null, anteriores: 0 }); setJaPagasCartao(0); setPagarNoCartao(false); setEssencial(false); setObs('')
   }, [aberto]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cartaoSel = cartoes.find(c => c.id === cartao)
-  const previa = tipo === 'cartao' && cartaoSel && dataV ? faturaDaCompra(cartaoSel, dataV) : null
+  const kPagas = parcelas > 1 ? Math.min(jaPagasCartao, parcelas - 1) : 0
+  const previa = tipo === 'cartao' && cartaoSel && dataV ? faturaDaCompra(cartaoSel, dataV, kPagas) : null
   const cats = tipo === 'receita' ? catReceita : catDespesa
   const usaCartao = tipo === 'despesa' && pagarNoCartao && !efetivado
 
@@ -95,10 +97,16 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
     if (tipo === 'cartao') {
       if (!cartao) return setErro('Cadastre um cartão primeiro.')
       if (valor < parcelas) return setErro('Valor pequeno demais para tantas parcelas.')
-      const ok = await executar(() => rpc('fin_registrar_compra', {
-        p_id: crypto.randomUUID(), p_cartao: cartao, p_descricao: descricao.trim(), p_total_cents: valor,
-        p_parcelas: parcelas, p_data: dataV, p_categoria: categoria || null, p_obs: obs.trim() || null,
-      }), parcelas > 1 ? `Compra registrada em ${parcelas}x.` : 'Compra registrada no cartão.')
+      const k = parcelas > 1 ? Math.min(jaPagasCartao, parcelas - 1) : 0
+      const ok = await executar(() => k > 0
+        ? rpc('fin_registrar_compra_em_andamento', {
+          p_id: crypto.randomUUID(), p_cartao: cartao, p_descricao: descricao.trim(), p_total_cents: valor,
+          p_parcelas: parcelas, p_data: dataV, p_ja_pagas: k, p_categoria: categoria || null, p_obs: obs.trim() || null,
+        })
+        : rpc('fin_registrar_compra', {
+          p_id: crypto.randomUUID(), p_cartao: cartao, p_descricao: descricao.trim(), p_total_cents: valor,
+          p_parcelas: parcelas, p_data: dataV, p_categoria: categoria || null, p_obs: obs.trim() || null,
+        }), k > 0 ? `Compra em andamento registrada: faltam ${parcelas - k} de ${parcelas} parcelas.` : parcelas > 1 ? `Compra registrada em ${parcelas}x.` : 'Compra registrada no cartão.')
       if (ok) aoFechar()
       return
     }
@@ -124,7 +132,7 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
         await inserir('recorrencias', {
           id: rid, tipo, nome: descricao.trim(), valor_cents: valor, dia, categoria_id: categoria || null,
           conta_id: usaCartao ? null : conta || null, cartao_id: usaCartao ? cartao : null, forma_pagamento: forma || null,
-          inicio: dataV, fim: fimRec, essencial, obs: obs.trim() || null,
+          inicio: dataV, fim: prazo.fim, parcelas_anteriores: prazo.anteriores, essencial, obs: obs.trim() || null,
         })
         await rpc('fin_gerar_previsoes')
         if (efetivado) {
@@ -186,10 +194,17 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
                 </Seletor>
               </Campo>
               <Campo rotulo="Categoria"><Seletor value={categoria} onChange={e => setCategoria(e.target.value)}><OpcoesCategorias cats={catDespesa} /></Seletor></Campo>
+              {parcelas > 1 && (
+                <Campo rotulo="Parcelas já pagas" className="sm:col-span-2" ajuda="Para compras feitas antes de usar o sistema: as parcelas já pagas não entram nas faturas nem no saldo.">
+                  <Seletor value={jaPagasCartao} onChange={e => setJaPagasCartao(+e.target.value)}>
+                    {Array.from({ length: parcelas }, (_, i) => <option key={i} value={i}>{i === 0 ? 'Nenhuma (compra nova)' : `${i} de ${parcelas} já pagas`}</option>)}
+                  </Seletor>
+                </Campo>
+              )}
               {previa && (
                 <div className="rounded-xl border border-borda bg-marfim px-4 py-3 text-[13px] text-taupe sm:col-span-2">
                   <L.CalendarClock className="mr-1.5 inline h-4 w-4 align-[-3px] text-vinho-suave" />
-                  {parcelas > 1 ? '1ª parcela' : 'Entra'} na fatura que fecha em <b className="text-carvao">{dataBR(previa.fechamento)}</b> e vence em <b className="text-carvao">{dataBR(previa.vencimento)}</b>.
+                  {parcelas > 1 ? `A ${kPagas + 1}ª parcela entra` : 'Entra'} na fatura que fecha em <b className="text-carvao">{dataBR(previa.fechamento)}</b> e vence em <b className="text-carvao">{dataBR(previa.vencimento)}</b>.
                   {parcelas > 1 && <> Última em {mesCurto(faturaDaCompra(cartaoSel!, dataV, parcelas - 1).vencimento, true)}.</>}
                 </div>
               )}
@@ -226,7 +241,7 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
                   ajuda={recorrente ? `Será gerada todo dia ${Number(dataV.slice(8, 10))}. ${tipo === 'receita' ? 'O saldo só aumenta quando você confirmar o recebimento.' : 'Cada mês aparece como conta a pagar.'}` : undefined}>
                   <Alternar ligado={recorrente} aoMudar={setRecorrente} rotulo="Recorrente" />
                 </Linha>
-                {recorrente && dataV && <div className="grid gap-3 sm:grid-cols-2"><CampoPrazo inicio={dataV} dia={Number(dataV.slice(8, 10))} fim={fimRec} aoMudar={setFimRec} receita={tipo === 'receita'} /></div>}
+                {recorrente && dataV && <div className="grid gap-3"><CampoPrazo inicio={dataV} dia={Number(dataV.slice(8, 10))} fim={prazo.fim} aoMudar={setPrazo} receita={tipo === 'receita'} /></div>}
                 {tipo === 'despesa' && !efetivado && cartoes.length > 0 && (
                   <Linha rotulo="Cobrada no cartão de crédito" ajuda="Ao confirmar, vira uma compra no cartão e entra na fatura.">
                     <Alternar ligado={pagarNoCartao} aoMudar={setPagarNoCartao} rotulo="Cobrada no cartão" />
@@ -265,37 +280,45 @@ function Linha({ rotulo, ajuda, children }: { rotulo: string; ajuda?: string; ch
 // Prazo de uma recorrência: sem prazo, N parcelas ou até uma data
 // =====================================================================
 type ModoPrazo = 'sem' | 'parcelas' | 'data'
-export function CampoPrazo({ inicio, dia, fim, aoMudar, receita }: { inicio: string; dia: number; fim: string | null; aoMudar: (fim: string | null) => void; receita?: boolean }) {
+export interface Prazo { fim: string | null; anteriores: number }
+export function CampoPrazo({ inicio, dia, fim, anteriores = 0, aoMudar, receita }: {
+  inicio: string; dia: number; fim: string | null; anteriores?: number; aoMudar: (p: Prazo) => void; receita?: boolean
+}) {
   const [modo, setModo] = useState<ModoPrazo>(fim ? 'parcelas' : 'sem')
-  const [n, setN] = useState(() => (fim ? Math.max(1, totalParcelas(inicio, dia, fim)) : 12))
+  const [n, setN] = useState(() => (fim ? Math.max(1, totalParcelas(inicio, dia, fim)) + anteriores : 12))
+  const [pagas, setPagas] = useState(anteriores)
   const [data, setData] = useState(fim ?? '')
-  // recalcula o fim quando muda o início, o dia ou o número de parcelas
+  const restantes = Math.max(1, n - pagas)
   useEffect(() => {
-    if (modo === 'parcelas') aoMudar(fimPorParcelas(inicio, dia, n))
-    else if (modo === 'data') aoMudar(data || null)
-    else aoMudar(null)
-  }, [modo, n, data, inicio, dia]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (modo === 'parcelas') aoMudar({ fim: fimPorParcelas(inicio, dia, restantes), anteriores: Math.min(pagas, n - 1) })
+    else if (modo === 'data') aoMudar({ fim: data || null, anteriores: 0 })
+    else aoMudar({ fim: null, anteriores: 0 })
+  }, [modo, n, pagas, data, inicio, dia]) // eslint-disable-line react-hooks/exhaustive-deps
   const primeira = primeiraOcorrencia(inicio, dia)
-  const total = fim ? totalParcelas(inicio, dia, fim) : 0
+  const verbo = receita ? 'recebidas' : 'pagas'
   return (
-    <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
-      <Campo rotulo="Prazo">
+    <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
+      <Campo rotulo="Prazo" className={modo === 'parcelas' ? '' : 'sm:col-span-2'}>
         <Seletor value={modo} onChange={e => setModo(e.target.value as ModoPrazo)} aria-label="Prazo">
           <option value="sem">Sem prazo, até eu cancelar</option>
           <option value="parcelas">Número de parcelas</option>
           <option value="data">Até uma data</option>
         </Seletor>
       </Campo>
-      {modo === 'parcelas' && (
-        <Campo rotulo="Quantas parcelas no total">
-          <Entrada type="number" inputMode="numeric" min={1} max={360} value={n} onChange={e => setN(Math.min(360, Math.max(1, Number(e.target.value) || 1)))} />
+      {modo === 'parcelas' && (<>
+        <Campo rotulo="Parcelas no total">
+          <Entrada type="number" inputMode="numeric" min={1} max={600} value={n} onChange={e => setN(Math.min(600, Math.max(1, Number(e.target.value) || 1)))} aria-label="Quantas parcelas no total" />
         </Campo>
-      )}
+        <Campo rotulo={`Já ${verbo} antes`}>
+          <Entrada type="number" inputMode="numeric" min={0} max={n - 1} value={pagas} onChange={e => setPagas(Math.min(n - 1, Math.max(0, Number(e.target.value) || 0)))} aria-label={`Parcelas já ${verbo} antes`} />
+        </Campo>
+      </>)}
       {modo === 'data' && <Campo rotulo="Última até"><Entrada type="date" value={data} min={primeira} onChange={e => setData(e.target.value)} /></Campo>}
-      <p className="text-xs text-taupe sm:col-span-2">
+      <p className="text-xs leading-relaxed text-taupe sm:col-span-3">
         {modo === 'sem' ? `Repete todo mês até você ${receita ? 'encerrar' : 'cancelar'}.`
-          : fim && total > 0 ? `${total} ${total === 1 ? 'parcela' : 'parcelas'}: de ${dataBR(primeira)} a ${dataBR(fimPorParcelas(inicio, dia, total))}.`
-          : 'Escolha a data da última parcela.'}
+          : modo === 'parcelas'
+            ? <>{n} {n === 1 ? 'parcela' : 'parcelas'} no total{pagas > 0 && <>, {pagas} já {verbo} (não mexem no saldo)</>}. {restantes === 1 ? 'Falta 1, em' : `Faltam ${restantes}: de`} <b className="text-carvao">{dataBR(primeira)}</b>{restantes > 1 && <> a <b className="text-carvao">{dataBR(fimPorParcelas(inicio, dia, restantes))}</b></>}. A próxima é a parcela {pagas + 1}.</>
+            : fim ? `${totalParcelas(inicio, dia, fim)} parcelas: de ${dataBR(primeira)} a ${dataBR(fimPorParcelas(inicio, dia, Math.max(1, totalParcelas(inicio, dia, fim))))}.` : 'Escolha a data da última parcela.'}
       </p>
     </div>
   )
@@ -505,7 +528,7 @@ export function RecorrenciaModal({ rec, aoFechar }: { rec: Recorrencia | null; a
         const ok = await executar(async () => {
           await atualizar('recorrencias', f.id, {
             nome: f.nome.trim(), valor_cents: f.valor_cents, dia: f.dia, categoria_id: f.categoria_id, conta_id: f.cartao_id ? null : f.conta_id,
-            cartao_id: f.cartao_id, inicio: f.inicio, fim: f.fim || null, ativa: f.ativa, essencial: f.essencial,
+            cartao_id: f.cartao_id, inicio: f.inicio, fim: f.fim || null, parcelas_anteriores: f.fim ? (f.parcelas_anteriores ?? 0) : 0, ativa: f.ativa, essencial: f.essencial,
           })
           await rpc('fin_aplicar_recorrencia', { p_id: f.id })
           await rpc('fin_gerar_previsoes')
@@ -523,7 +546,7 @@ export function RecorrenciaModal({ rec, aoFechar }: { rec: Recorrencia | null; a
         )}
         <Campo rotulo="Categoria"><Seletor value={f.categoria_id ?? ''} onChange={e => setF({ ...f, categoria_id: e.target.value || null })}><OpcoesCategorias cats={cats} /></Seletor></Campo>
         <Campo rotulo="Começa em" className="sm:col-span-2"><Entrada type="date" value={f.inicio} onChange={e => setF({ ...f, inicio: e.target.value })} /></Campo>
-        <CampoPrazo key={rec.id} inicio={f.inicio} dia={f.dia} fim={f.fim} aoMudar={fim => setF(x => (x ? { ...x, fim } : x))} receita={f.tipo === 'receita'} />
+        <CampoPrazo key={rec.id} inicio={f.inicio} dia={f.dia} fim={f.fim} anteriores={rec.parcelas_anteriores ?? 0} aoMudar={p => setF(x => (x ? { ...x, fim: p.fim, parcelas_anteriores: p.anteriores } : x))} receita={f.tipo === 'receita'} />
         {andamento && andamento.total > 0 && (
           <div className="rounded-xl bg-marfim p-3 text-sm sm:col-span-2">
             <div className="mb-2 flex justify-between"><span>{andamento.pagas} de {andamento.total} {f.tipo === 'receita' ? 'recebidas' : 'pagas'}</span><span className="font-medium">{andamento.faltam === 0 ? 'concluída' : `faltam ${andamento.faltam}`}</span></div>

@@ -3,6 +3,7 @@ import {
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes,
 } from 'react'
 import { AnimatePresence, motion, animate, useMotionValue, useTransform } from 'motion/react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import * as L from 'lucide-react'
 import { centavosParaTexto, paraCentavos, reais } from '../lib/formato'
@@ -261,7 +262,8 @@ export function Modal({ aberto, aoFechar, titulo, sub, children, rodape, largura
     }, 60)
     return () => { clearTimeout(t); document.removeEventListener('keydown', tecla); document.body.style.overflow = ov; anterior?.focus?.() }
   }, [aberto])
-  return (
+  // portal: a janela fica sempre sobre a tela inteira, independente de onde foi aberta
+  return createPortal(
     <AnimatePresence>
       {aberto && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
@@ -285,7 +287,8 @@ export function Modal({ aberto, aoFechar, titulo, sub, children, rodape, largura
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
 
@@ -369,5 +372,51 @@ export function IconeCategoria({ cor, icone, tamanho = 'md' }: { cor: string; ic
     <span className={cn('grid shrink-0 place-items-center rounded-xl', tamanho === 'sm' ? 'h-7 w-7' : 'h-9 w-9')} style={{ background: cor + '14', color: cor }}>
       <Icone nome={icone} className={tamanho === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
     </span>
+  )
+}
+
+// ---------------------------------------------------------------- menu de ações (⋯)
+export interface AcaoMenu { r: string; i?: L.LucideIcon; f: () => void; perigo?: boolean; oculto?: boolean }
+/** Menu de ações com rótulos. Abre sobre a tela (não é cortado por cartões) e vira para cima perto do rodapé. */
+export function MenuAcoes({ acoes, rotulo = 'Mais ações' }: { acoes: AcaoMenu[]; rotulo?: string }) {
+  const [pos, setPos] = useState<null | { top?: number; bottom?: number; right: number }>(null)
+  const botao = useRef<HTMLButtonElement>(null)
+  const visiveis = acoes.filter(a => !a.oculto)
+  useEffect(() => {
+    if (!pos) return
+    const fechar = () => setPos(null)
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPos(null); botao.current?.focus() } }
+    window.addEventListener('scroll', fechar, true); window.addEventListener('resize', fechar); window.addEventListener('keydown', tecla)
+    return () => { window.removeEventListener('scroll', fechar, true); window.removeEventListener('resize', fechar); window.removeEventListener('keydown', tecla) }
+  }, [pos])
+  if (!visiveis.length) return null
+  function abrir() {
+    const r = botao.current!.getBoundingClientRect()
+    const altura = visiveis.length * 38 + 12
+    const right = Math.max(8, window.innerWidth - r.right)
+    setPos(window.innerHeight - r.bottom < altura + 16 ? { bottom: window.innerHeight - r.top + 6, right } : { top: r.bottom + 6, right })
+  }
+  return (
+    <>
+      <button ref={botao} type="button" onClick={() => (pos ? setPos(null) : abrir())} aria-haspopup="menu" aria-expanded={!!pos} aria-label={rotulo} title={rotulo}
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-taupe transition hover:bg-creme hover:text-carvao">
+        <L.Ellipsis className="h-4 w-4" />
+      </button>
+      {pos && createPortal(
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={() => setPos(null)} />
+          <motion.div role="menu" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.12 }}
+            className="fixed z-[71] min-w-[210px] rounded-2xl border border-borda bg-cartao p-1.5 shadow-elevada" style={pos}>
+            {visiveis.map(a => (
+              <button key={a.r} role="menuitem" onClick={() => { setPos(null); a.f() }}
+                className={cn('flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-sm', a.perigo ? 'text-despesa hover:bg-despesa-fundo' : 'text-carvao hover:bg-creme')}>
+                {a.i && <a.i className={cn('h-4 w-4', !a.perigo && 'text-taupe')} />}{a.r}
+              </button>
+            ))}
+          </motion.div>
+        </>,
+        document.body,
+      )}
+    </>
   )
 }
