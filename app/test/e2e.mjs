@@ -210,6 +210,36 @@ try {
   ok('salário em partes: sem previsão duplicada e o já recebido não muda', Object.values(porRecMes).every(n => n === 1) && p2dez?.valor_cents === 100000 && p2dez.status === 'pendente' && p1dez?.status === 'efetivado' && p1dez.valor_cents === 250000, `${p1dez?.status}:${p1dez?.valor_cents} ${p2dez?.status}:${p2dez?.valor_cents}`)
   ok('salário em partes: resumo mostra as duas datas', await page.getByText(/60% dia 5/).waitFor({ timeout: 4000 }).then(() => true).catch(() => false))
 
+  // ---------- prazo em recorrências ----------
+  await page.goto(BASE + '/a-pagar')
+  await page.getByRole('button', { name: 'Nova conta a pagar' }).click()
+  const dp = page.getByRole('dialog')
+  await dp.getByLabel('Valor').fill('300')
+  await dp.getByLabel('Descrição').fill('Curso')
+  await dp.getByRole('switch', { name: 'Recorrente' }).click()
+  await dp.getByRole('combobox', { name: 'Prazo' }).selectOption('parcelas')
+  await dp.getByLabel('Quantas parcelas no total').fill('10')
+  ok('prazo: mostra o intervalo das 10 parcelas', await dp.getByText(/10 parcelas: de/).waitFor({ timeout: 4000 }).then(() => true).catch(() => false))
+  await page.screenshot({ path: FOTOS + 'prazo-recorrencia.png' })
+  await dp.getByRole('button', { name: 'Salvar' }).click()
+  await page.getByText('Despesa recorrente criada.').waitFor()
+  const curso = T('fin_recorrencias').find(r => r.nome === 'Curso')
+  ok('prazo: recorrência criada com data final', !!curso?.fim, curso?.fim)
+  await page.getByRole('tab', { name: 'Fixas e assinaturas' }).click()
+  ok('prazo: lista mostra 0/10 e quantas faltam', await page.getByText(/0\/10 · faltam 10/).waitFor({ timeout: 4000 }).then(() => true).catch(() => false))
+  await page.getByRole('tab', { name: /Pendentes/ }).click()
+  ok('prazo: cobrança mostra "parcela 1 de 10"', await page.getByText(/parcela 1 de 10/).first().waitFor({ timeout: 4000 }).then(() => true).catch(() => false))
+  // cancelar por escolha
+  await page.getByRole('tab', { name: 'Fixas e assinaturas' }).click()
+  const linhaNet = page.locator('li', { hasText: 'Internet' }).first()
+  await linhaNet.getByRole('button', { name: 'Editar recorrência' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar recorrência' }).click()
+  await page.getByRole('dialog', { name: /Cancelar "Internet"/ }).getByRole('button', { name: 'Cancelar recorrência' }).click()
+  await page.getByText(/Recorrência cancelada/).waitFor()
+  const net2 = T('fin_recorrencias').find(r => r.nome === 'Internet')
+  const pendNet = T('fin_lancamentos').filter(l => l.recorrencia_id === net2.id && l.status === 'pendente')
+  ok('cancelar recorrência: para de gerar cobranças', net2.ativa === false && pendNet.length === 0, `ativa=${net2.ativa} pendentes=${pendNet.length}`)
+
   // ---------- Teste 8: todas as telas em 3 tamanhos ----------
   const rotas = ['/', '/transacoes', '/contas', '/cartoes', '/a-pagar', '/orcamentos', '/metas', '/calendario', '/relatorios', '/configuracoes']
   const tamanhos = [['desktop', { width: 1440, height: 900 }], ['tablet', { width: 820, height: 1180 }], ['celular', { width: 390, height: 844 }]]

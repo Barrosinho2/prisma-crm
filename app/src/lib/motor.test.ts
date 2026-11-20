@@ -181,3 +181,17 @@ describe('salário em partes', () => {
     expect(dividir(100001, [33.3, 33.3, 33.4]).reduce((a, v) => a + v, 0)).toBe(100001)
   })
 })
+
+import { fimPorParcelas, numeroParcela, primeiraOcorrencia, totalParcelas } from './motor'
+describe('prazo das recorrências', () => {
+  it('conta parcelas e calcula o fim', () => {
+    expect(primeiraOcorrencia('2026-11-19', 10)).toBe('2026-12-10')
+    expect(primeiraOcorrencia('2026-11-19', 25)).toBe('2026-11-25')
+    expect(fimPorParcelas('2026-11-19', 10, 12)).toBe('2027-11-10')
+    expect(fimPorParcelas('2026-11-19', 25, 1)).toBe('2026-11-25')
+    expect(totalParcelas('2026-11-19', 10, fimPorParcelas('2026-11-19', 10, 12))).toBe(12)
+    expect(totalParcelas('2026-11-19', 31, fimPorParcelas('2026-11-19', 31, 6))).toBe(6)
+    expect(totalParcelas('2026-11-19', 10, '2027-02-05')).toBe(2)
+    expect(numeroParcela({ inicio: '2026-11-19', dia: 10 }, '2027-02-01')).toBe(3)
+  })
+})

@@ -579,3 +579,36 @@ export function mapaPorId<T extends { id: string }>(xs: T[]): Map<string, T> {
 }
 export function contaAtiva(c: Conta) { return !c.arquivada }
 export { mesmoMes }
+
+// ---------------------------------------------------------------- prazo das recorrências
+/** Data da primeira ocorrência de uma recorrência (o dia no mês de início, ou no mês seguinte se já passou). */
+export function primeiraOcorrencia(inicio: string, dia: number): string {
+  const d = diaNoMes(inicio, dia)
+  return d >= inicio ? d : diaNoMes(somaMeses(inicioMes(inicio), 1), dia)
+}
+/** Data da última ocorrência para um total de N parcelas. */
+export function fimPorParcelas(inicio: string, dia: number, n: number): string {
+  return diaNoMes(somaMeses(inicioMes(primeiraOcorrencia(inicio, dia)), Math.max(1, n) - 1), dia)
+}
+/** Quantas ocorrências existem entre o início e o fim (inclusive). */
+export function totalParcelas(inicio: string, dia: number, fim: string): number {
+  const p = primeiraOcorrencia(inicio, dia)
+  if (fim < p) return 0
+  const [a1, m1] = partes(p), [a2, m2] = partes(fim)
+  let n = (a2 - a1) * 12 + (m2 - m1) + 1
+  if (diaNoMes(fim, dia) > fim) n -= 1
+  return Math.max(0, n)
+}
+/** Número da parcela de uma ocorrência (1 = primeira). */
+export function numeroParcela(r: Pick<Recorrencia, 'inicio' | 'dia'>, competencia: string): number {
+  const [a1, m1] = partes(primeiraOcorrencia(r.inicio, r.dia)), [a2, m2] = partes(competencia)
+  return (a2 - a1) * 12 + (m2 - m1) + 1
+}
+export interface PrazoRecorrencia { total: number; pagas: number; faltam: number; ultima: string; encerrada: boolean }
+/** Andamento de uma recorrência com prazo. null = sem prazo (até cancelar). */
+export function prazoRecorrencia(b: Banco, r: Recorrencia): PrazoRecorrencia | null {
+  if (!r.fim) return null
+  const total = totalParcelas(r.inicio, r.dia, r.fim)
+  const pagas = b.lancamentos.filter(l => l.recorrencia_id === r.id && l.status === 'efetivado').length
+  return { total, pagas, faltam: Math.max(0, total - pagas), ultima: diaNoMes(r.fim, r.dia) > r.fim ? diaNoMes(somaMeses(inicioMes(r.fim), -1), r.dia) : diaNoMes(r.fim, r.dia), encerrada: !r.ativa }
+}

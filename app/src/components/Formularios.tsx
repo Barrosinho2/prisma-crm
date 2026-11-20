@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as L from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useDados } from '../lib/dados'
-import { faturaDaCompra, infoFaturas, saldoMeta, saldos } from '../lib/motor'
+import { faturaDaCompra, fimPorParcelas, infoFaturas, prazoRecorrencia, primeiraOcorrencia, saldoMeta, saldos, totalParcelas } from '../lib/motor'
 import { dataBR, inicioMes, mesCurto, reais, somaMeses } from '../lib/formato'
 import {
   FORMAS, TIPOS_CONTA, type Cartao, type Categoria, type Conta, type FormaPagamento, type Lancamento, type Meta,
@@ -54,6 +54,7 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
   const [cartao, setCartao] = useState('')
   const [parcelas, setParcelas] = useState(1)
   const [recorrente, setRecorrente] = useState(false)
+  const [fimRec, setFimRec] = useState<string | null>(null)
   const [pagarNoCartao, setPagarNoCartao] = useState(false)
   const [essencial, setEssencial] = useState(false)
   const [obs, setObs] = useState('')
@@ -71,7 +72,7 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
     }
     setTipo(tipoInicial); setDescricao(''); setValor(null); setData(hoje); setEfetivado(!pendenteInicial)
     setConta(contas[0]?.id ?? ''); setDestino(contas[1]?.id ?? ''); setCategoria(''); setForma('')
-    setCartao(cartoes[0]?.id ?? ''); setParcelas(1); setRecorrente(false); setPagarNoCartao(false); setEssencial(false); setObs('')
+    setCartao(cartoes[0]?.id ?? ''); setParcelas(1); setRecorrente(false); setFimRec(null); setPagarNoCartao(false); setEssencial(false); setObs('')
   }, [aberto]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cartaoSel = cartoes.find(c => c.id === cartao)
@@ -123,7 +124,7 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
         await inserir('recorrencias', {
           id: rid, tipo, nome: descricao.trim(), valor_cents: valor, dia, categoria_id: categoria || null,
           conta_id: usaCartao ? null : conta || null, cartao_id: usaCartao ? cartao : null, forma_pagamento: forma || null,
-          inicio: dataV, essencial, obs: obs.trim() || null,
+          inicio: dataV, fim: fimRec, essencial, obs: obs.trim() || null,
         })
         await rpc('fin_gerar_previsoes')
         if (efetivado) {
@@ -225,6 +226,7 @@ export function TransacaoModal({ aberto, aoFechar, tipoInicial = 'despesa', edit
                   ajuda={recorrente ? `Será gerada todo dia ${Number(dataV.slice(8, 10))}. ${tipo === 'receita' ? 'O saldo só aumenta quando você confirmar o recebimento.' : 'Cada mês aparece como conta a pagar.'}` : undefined}>
                   <Alternar ligado={recorrente} aoMudar={setRecorrente} rotulo="Recorrente" />
                 </Linha>
+                {recorrente && dataV && <div className="grid gap-3 sm:grid-cols-2"><CampoPrazo inicio={dataV} dia={Number(dataV.slice(8, 10))} fim={fimRec} aoMudar={setFimRec} receita={tipo === 'receita'} /></div>}
                 {tipo === 'despesa' && !efetivado && cartoes.length > 0 && (
                   <Linha rotulo="Cobrada no cartão de crédito" ajuda="Ao confirmar, vira uma compra no cartão e entra na fatura.">
                     <Alternar ligado={pagarNoCartao} aoMudar={setPagarNoCartao} rotulo="Cobrada no cartão" />
@@ -255,6 +257,46 @@ function Linha({ rotulo, ajuda, children }: { rotulo: string; ajuda?: string; ch
     <div className="flex items-center justify-between gap-4">
       <div><p className="text-sm font-medium text-carvao">{rotulo}</p>{ajuda && <p className="mt-0.5 text-xs text-taupe">{ajuda}</p>}</div>
       {children}
+    </div>
+  )
+}
+
+// =====================================================================
+// Prazo de uma recorrência: sem prazo, N parcelas ou até uma data
+// =====================================================================
+type ModoPrazo = 'sem' | 'parcelas' | 'data'
+export function CampoPrazo({ inicio, dia, fim, aoMudar, receita }: { inicio: string; dia: number; fim: string | null; aoMudar: (fim: string | null) => void; receita?: boolean }) {
+  const [modo, setModo] = useState<ModoPrazo>(fim ? 'parcelas' : 'sem')
+  const [n, setN] = useState(() => (fim ? Math.max(1, totalParcelas(inicio, dia, fim)) : 12))
+  const [data, setData] = useState(fim ?? '')
+  // recalcula o fim quando muda o início, o dia ou o número de parcelas
+  useEffect(() => {
+    if (modo === 'parcelas') aoMudar(fimPorParcelas(inicio, dia, n))
+    else if (modo === 'data') aoMudar(data || null)
+    else aoMudar(null)
+  }, [modo, n, data, inicio, dia]) // eslint-disable-line react-hooks/exhaustive-deps
+  const primeira = primeiraOcorrencia(inicio, dia)
+  const total = fim ? totalParcelas(inicio, dia, fim) : 0
+  return (
+    <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+      <Campo rotulo="Prazo">
+        <Seletor value={modo} onChange={e => setModo(e.target.value as ModoPrazo)} aria-label="Prazo">
+          <option value="sem">Sem prazo, até eu cancelar</option>
+          <option value="parcelas">Número de parcelas</option>
+          <option value="data">Até uma data</option>
+        </Seletor>
+      </Campo>
+      {modo === 'parcelas' && (
+        <Campo rotulo="Quantas parcelas no total">
+          <Entrada type="number" inputMode="numeric" min={1} max={360} value={n} onChange={e => setN(Math.min(360, Math.max(1, Number(e.target.value) || 1)))} />
+        </Campo>
+      )}
+      {modo === 'data' && <Campo rotulo="Última até"><Entrada type="date" value={data} min={primeira} onChange={e => setData(e.target.value)} /></Campo>}
+      <p className="text-xs text-taupe sm:col-span-2">
+        {modo === 'sem' ? `Repete todo mês até você ${receita ? 'encerrar' : 'cancelar'}.`
+          : fim && total > 0 ? `${total} ${total === 1 ? 'parcela' : 'parcelas'}: de ${dataBR(primeira)} a ${dataBR(fimPorParcelas(inicio, dia, total))}.`
+          : 'Escolha a data da última parcela.'}
+      </p>
     </div>
   )
 }
@@ -437,14 +479,28 @@ export function RecorrenciaModal({ rec, aoFechar }: { rec: Recorrencia | null; a
   const { atualizar, rpc } = useDados()
   const { contas, cartoes, catDespesa, catReceita } = useListas()
   const { ocupado, executar } = useAcao()
+  const { banco, hoje } = useDados()
+  const { confirmar } = useAvisos()
   const [f, setF] = useState<Recorrencia | null>(null)
   useEffect(() => { setF(rec ? { ...rec } : null) }, [rec])
   if (!rec || !f) return null
   const cats = f.tipo === 'receita' ? catReceita : catDespesa
+  const andamento = prazoRecorrencia(banco, rec)
+  async function encerrar() {
+    if (!f) return
+    const ok = await confirmar({ titulo: `${f.tipo === 'receita' ? 'Encerrar' : 'Cancelar'} "${f.nome}"?`, botao: f.tipo === 'receita' ? 'Encerrar' : 'Cancelar recorrência', perigo: true,
+      texto: 'As cobranças ainda não pagas de hoje em diante deixam de existir. O que já foi pago continua no histórico.' })
+    if (!ok) return
+    const feito = await executar(async () => {
+      await atualizar('recorrencias', f.id, { ativa: false, fim: hoje >= f.inicio ? hoje : f.inicio })
+      await rpc('fin_aplicar_recorrencia', { p_id: f.id })
+    }, f.tipo === 'receita' ? 'Recorrência encerrada.' : 'Recorrência cancelada. Nenhuma nova cobrança será gerada.')
+    if (feito) aoFechar()
+  }
   return (
     <Modal aberto={!!rec} aoFechar={aoFechar} titulo={f.tipo === 'receita' ? 'Receita recorrente' : 'Despesa recorrente'}
       sub="As mudanças valem para as ocorrências pendentes deste mês em diante. O que já foi pago ou recebido não muda."
-      rodape={<><Botao onClick={aoFechar}>Cancelar</Botao><Botao variante="primario" carregando={ocupado} onClick={async () => {
+      rodape={<>{rec.ativa && <Botao variante="fantasma" className="text-despesa hover:bg-despesa-fundo sm:mr-auto" onClick={encerrar}>{f.tipo === 'receita' ? 'Encerrar recorrência' : 'Cancelar recorrência'}</Botao>}<Botao onClick={aoFechar}>Fechar</Botao><Botao variante="primario" carregando={ocupado} onClick={async () => {
         if (!f.nome.trim() || f.valor_cents <= 0) return
         const ok = await executar(async () => {
           await atualizar('recorrencias', f.id, {
@@ -466,8 +522,14 @@ export function RecorrenciaModal({ rec, aoFechar }: { rec: Recorrencia | null; a
           <Campo rotulo="Conta"><Seletor value={f.conta_id ?? ''} onChange={e => setF({ ...f, conta_id: e.target.value || null })}><OpcoesContas contas={contas} /></Seletor></Campo>
         )}
         <Campo rotulo="Categoria"><Seletor value={f.categoria_id ?? ''} onChange={e => setF({ ...f, categoria_id: e.target.value || null })}><OpcoesCategorias cats={cats} /></Seletor></Campo>
-        <Campo rotulo="Começa em"><Entrada type="date" value={f.inicio} onChange={e => setF({ ...f, inicio: e.target.value })} /></Campo>
-        <Campo rotulo="Termina em (opcional)"><Entrada type="date" value={f.fim ?? ''} onChange={e => setF({ ...f, fim: e.target.value || null })} /></Campo>
+        <Campo rotulo="Começa em" className="sm:col-span-2"><Entrada type="date" value={f.inicio} onChange={e => setF({ ...f, inicio: e.target.value })} /></Campo>
+        <CampoPrazo key={rec.id} inicio={f.inicio} dia={f.dia} fim={f.fim} aoMudar={fim => setF(x => (x ? { ...x, fim } : x))} receita={f.tipo === 'receita'} />
+        {andamento && andamento.total > 0 && (
+          <div className="rounded-xl bg-marfim p-3 text-sm sm:col-span-2">
+            <div className="mb-2 flex justify-between"><span>{andamento.pagas} de {andamento.total} {f.tipo === 'receita' ? 'recebidas' : 'pagas'}</span><span className="font-medium">{andamento.faltam === 0 ? 'concluída' : `faltam ${andamento.faltam}`}</span></div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-creme"><div className="h-full rounded-full bg-vinho" style={{ width: `${Math.min(100, (andamento.pagas / andamento.total) * 100)}%` }} /></div>
+          </div>
+        )}
         <div className="space-y-3 rounded-xl border border-borda bg-marfim/70 p-4 sm:col-span-2">
           <Linha rotulo="Ativa" ajuda={!f.ativa ? 'As ocorrências pendentes de hoje em diante serão canceladas.' : undefined}><Alternar ligado={f.ativa} aoMudar={v => setF({ ...f, ativa: v })} rotulo="Ativa" /></Linha>
           {f.tipo === 'despesa' && <Linha rotulo="Despesa essencial"><Alternar ligado={f.essencial} aoMudar={v => setF({ ...f, essencial: v })} rotulo="Essencial" /></Linha>}

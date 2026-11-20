@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import * as L from 'lucide-react'
 import { useDados } from '../lib/dados'
-import { infoFaturas, statusVisivel } from '../lib/motor'
+import { infoFaturas, numeroParcela, prazoRecorrencia, statusVisivel, totalParcelas } from '../lib/motor'
 import { dataBR, diasEntre, fimMes, inicioMes, mesCurto, nomeMes, somaDias } from '../lib/formato'
 import type { Lancamento, Recorrencia } from '../lib/tipos'
 import { Cabecalho } from '../components/Layout'
@@ -21,6 +21,7 @@ export default function APagar() {
   const [rec, setRec] = useState<Recorrencia | null>(null)
   const [pagarFatura, setPagarFatura] = useState<string | null>(null)
   const cats = useMemo(() => new Map(banco.categorias.map(c => [c.id, c])), [banco.categorias])
+  const recPorId = useMemo(() => new Map(banco.recorrencias.map(r => [r.id, r])), [banco.recorrencias])
   const contas = useMemo(() => new Map(banco.contas.map(c => [c.id, c.nome])), [banco.contas])
   const cartoes = useMemo(() => new Map(banco.cartoes.map(c => [c.id, c.nome])), [banco.cartoes])
   const alerta = banco.config?.alerta_dias ?? 3
@@ -41,6 +42,8 @@ export default function APagar() {
     const c = l.categoria_id ? cats.get(l.categoria_id) : null
     const st = statusVisivel(l, hoje)
     const dias = diasEntre(hoje, l.data_prevista)
+    const r = l.recorrencia_id ? recPorId.get(l.recorrencia_id) : undefined
+    const parcela = r?.fim && l.competencia ? `parcela ${numeroParcela(r, l.competencia)} de ${totalParcelas(r.inicio, r.dia, r.fim)} · ` : ''
     const quando = l.status === 'efetivado' ? `${l.tipo === 'receita' ? 'recebido' : 'pago'} em ${dataBR(l.data_efetiva)}`
       : st === 'vencido' ? `venceu há ${-dias} ${-dias === 1 ? 'dia' : 'dias'}` : dias === 0 ? 'vence hoje' : dias === 1 ? 'amanhã' : `em ${dias} dias`
     return (
@@ -51,7 +54,7 @@ export default function APagar() {
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 truncate text-sm font-medium">{l.descricao}{l.recorrencia_id && <L.Repeat className="h-3.5 w-3.5 shrink-0 text-taupe" aria-label="recorrente" />}</p>
           <p className="truncate text-xs text-taupe">
-            {c && <span>{c.nome} · </span>}{l.cartao_id ? `cartão ${cartoes.get(l.cartao_id)}` : contas.get(l.conta_id ?? '') ?? 'sem conta'} · <span className={st === 'vencido' ? 'font-medium text-despesa' : ''}>{quando}</span>
+            {parcela && <span className="font-medium text-carvao/80">{parcela}</span>}{c && <span>{c.nome} · </span>}{l.cartao_id ? `cartão ${cartoes.get(l.cartao_id)}` : contas.get(l.conta_id ?? '') ?? 'sem conta'} · <span className={st === 'vencido' ? 'font-medium text-despesa' : ''}>{quando}</span>
           </p>
         </div>
         <Etiqueta className="max-sm:hidden" tom={st === 'vencido' ? 'despesa' : st === 'pago' || st === 'recebido' ? 'receita' : 'atencao'}>{st}</Etiqueta>
@@ -134,7 +137,17 @@ export default function APagar() {
                   <IconeCategoria cor={c?.cor ?? (r.tipo === 'receita' ? '#3F6E52' : '#817678')} icone={c?.icone ?? (r.tipo === 'receita' ? 'briefcase' : 'repeat')} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{r.nome}</p>
-                    <p className="truncate text-xs text-taupe">todo dia {r.dia} · {r.cartao_id ? `cartão ${cartoes.get(r.cartao_id)}` : contas.get(r.conta_id ?? '') ?? '—'}{r.fim && ` · até ${dataBR(r.fim)}`}{r.essencial && ' · essencial'}</p>
+                    <p className="truncate text-xs text-taupe">todo dia {r.dia} · {r.cartao_id ? `cartão ${cartoes.get(r.cartao_id)}` : contas.get(r.conta_id ?? '') ?? '—'}{r.essencial && ' · essencial'}</p>
+                    {(() => {
+                      const pz = prazoRecorrencia(banco, r)
+                      if (!pz) return <p className="text-xs text-taupe">sem prazo{r.ativa ? ', até cancelar' : ''}</p>
+                      return (
+                        <div className="mt-1 flex max-w-xs items-center gap-2">
+                          <div className="h-1 flex-1 overflow-hidden rounded-full bg-creme"><div className="h-full rounded-full bg-vinho-suave" style={{ width: `${pz.total ? Math.min(100, (pz.pagas / pz.total) * 100) : 0}%` }} /></div>
+                          <span className="shrink-0 text-xs text-taupe">{pz.pagas}/{pz.total} · {r.ativa ? (pz.faltam ? `faltam ${pz.faltam}, até ${dataBR(pz.ultima)}` : 'concluída') : `encerrada em ${dataBR(r.fim)}`}</span>
+                        </div>
+                      )
+                    })()}
                   </div>
                   <Etiqueta tom={!r.ativa ? 'neutro' : r.tipo === 'receita' ? 'receita' : 'vinho'}>{!r.ativa ? 'encerrada' : r.tipo === 'receita' ? 'receita' : 'despesa'}</Etiqueta>
                   <Valor cents={r.valor_cents} className="w-24 text-right text-sm font-semibold" />
