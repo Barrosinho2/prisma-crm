@@ -95,7 +95,10 @@ export default function Contas() {
                   <div className="mt-1 flex items-center justify-between text-xs text-taupe">
                     <span>Saldo inicial <Valor cents={c.saldo_inicial_cents} /> em {dataBR(c.data_saldo_inicial)}</span>
                   </div>
-                  <button onClick={() => setHistorico(c)} className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-vinho hover:underline">Ver movimentações <L.ArrowRight className="h-3.5 w-3.5" /></button>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Botao tamanho="sm" icone={L.SlidersHorizontal} onClick={() => setModal({ aberto: true, editar: c })}>Ajustar saldo</Botao>
+                    <Botao tamanho="sm" variante="fantasma" onClick={() => setHistorico(c)}>Ver movimentações</Botao>
+                  </div>
                 </Painel>
               </motion.div>
             )

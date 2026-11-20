@@ -254,6 +254,14 @@ try {
   const pendNet = T('fin_lancamentos').filter(l => l.recorrencia_id === net2.id && l.status === 'pendente')
   ok('cancelar recorrência: para de gerar cobranças', net2.ativa === false && pendNet.length === 0, `ativa=${net2.ativa} pendentes=${pendNet.length}`)
 
+  // ---------- ajustar saldo atual ----------
+  await page.goto(BASE + '/contas')
+  await page.locator('div', { hasText: 'Conta principal' }).getByRole('button', { name: 'Ajustar saldo' }).first().click()
+  await page.getByRole('dialog').getByLabel('Saldo atual').fill('164,86')
+  await page.getByRole('dialog').getByRole('button', { name: 'Salvar' }).click()
+  await page.getByText(/Saldo ajustado para/).waitFor()
+  ok('ajustar saldo: conta fica com R$ 164,86', saldoConta('Conta principal') === 16486, String(saldoConta('Conta principal')))
+
   // ---------- Teste 8: todas as telas em 3 tamanhos ----------
   const rotas = ['/', '/transacoes', '/contas', '/cartoes', '/a-pagar', '/orcamentos', '/metas', '/calendario', '/relatorios', '/configuracoes']
   const tamanhos = [['desktop', { width: 1440, height: 900 }], ['tablet', { width: 820, height: 1180 }], ['celular', { width: 390, height: 844 }]]

@@ -370,8 +370,10 @@ export function ConfirmarModal({ lanc, aoFechar }: { lanc: Lancamento | null; ao
 // =====================================================================
 const CORES = ['#621F32', '#875364', '#9C6B4E', '#5E7A6B', '#4F6A84', '#7A6A8C', '#B0855B', '#292526']
 export function ContaModal({ aberto, aoFechar, editar }: { aberto: boolean; aoFechar: () => void; editar?: Conta | null }) {
-  const { inserir, atualizar, hoje } = useDados()
+  const { inserir, atualizar, hoje, banco } = useDados()
   const { ocupado, executar } = useAcao()
+  // na edição, o campo é o saldo de HOJE; o sistema ajusta o saldo inicial por trás
+  const atual = editar ? saldos(banco).get(editar.id) ?? editar.saldo_inicial_cents : 0
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState<TipoConta>('corrente')
   const [saldo, setSaldo] = useState<number | null>(0)
@@ -379,15 +381,15 @@ export function ContaModal({ aberto, aoFechar, editar }: { aberto: boolean; aoFe
   const [erro, setErro] = useState<string | null>(null)
   useEffect(() => {
     if (!aberto) return
-    setErro(null); setNome(editar?.nome ?? ''); setTipo(editar?.tipo ?? 'corrente'); setSaldo(editar?.saldo_inicial_cents ?? 0); setCor(editar?.cor ?? CORES[0])
+    setErro(null); setNome(editar?.nome ?? ''); setTipo(editar?.tipo ?? 'corrente'); setSaldo(editar ? atual : 0); setCor(editar?.cor ?? CORES[0])
   }, [aberto, editar])
   return (
     <Modal aberto={aberto} aoFechar={aoFechar} titulo={editar ? 'Editar conta' : 'Nova conta'} largura="sm"
       rodape={<><Botao onClick={aoFechar}>Cancelar</Botao><Botao variante="primario" carregando={ocupado} onClick={async () => {
         if (!nome.trim()) return setErro('Dê um nome à conta.')
-        if (saldo == null) return setErro('Informe o saldo inicial (pode ser 0).')
-        const campos = { nome: nome.trim(), tipo, saldo_inicial_cents: saldo, cor }
-        const ok = await executar(() => editar ? atualizar('contas', editar.id, campos) : inserir('contas', { ...campos, data_saldo_inicial: hoje }), editar ? 'Conta atualizada.' : 'Conta criada.')
+        if (saldo == null) return setErro(editar ? 'Informe o saldo atual (pode ser 0).' : 'Informe o saldo inicial (pode ser 0).')
+        const campos = { nome: nome.trim(), tipo, cor, saldo_inicial_cents: editar ? editar.saldo_inicial_cents + (saldo - atual) : saldo }
+        const ok = await executar(() => editar ? atualizar('contas', editar.id, campos) : inserir('contas', { ...campos, data_saldo_inicial: hoje }), editar ? (saldo !== atual ? `Saldo ajustado para ${reais(saldo)}.` : 'Conta atualizada.') : 'Conta criada.')
         if (ok) aoFechar()
       }}>Salvar</Botao></>}>
       <div className="grid gap-4">
@@ -395,7 +397,9 @@ export function ContaModal({ aberto, aoFechar, editar }: { aberto: boolean; aoFe
         <Campo rotulo="Tipo" ajuda={tipo === 'reserva' ? 'O saldo desta conta não entra no "disponível para gastar".' : undefined}>
           <Seletor value={tipo} onChange={e => setTipo(e.target.value as TipoConta)}>{Object.entries(TIPOS_CONTA).map(([k, r]) => <option key={k} value={k}>{r}</option>)}</Seletor>
         </Campo>
-        <Campo rotulo="Saldo inicial" ajuda={editar ? 'Corrigir o saldo inicial recalcula o saldo atual.' : 'Quanto há nesta conta hoje.'}>
+        <Campo rotulo={editar ? 'Saldo atual' : 'Saldo de hoje'} ajuda={editar
+          ? (saldo != null && saldo !== atual ? `Ajuste de ${saldo > atual ? '+' : '−'} ${reais(Math.abs(saldo - atual))}. Os lançamentos não mudam e o ajuste não conta como receita nem despesa.` : 'Para corrigir o saldo, digite o valor que está hoje no banco.')
+          : 'Quanto há nesta conta hoje.'}>
           <CampoValor valor={saldo} aoMudar={setSaldo} />
         </Campo>
         <Campo rotulo="Cor">
