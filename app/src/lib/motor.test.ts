@@ -5,6 +5,7 @@ import {
   limiteVigente, orcamentosDoMes, analise, resumoCartao,
 } from './motor'
 import { diaNoMes, paraCentavos, somaMeses } from './formato'
+import { dividir } from '../components/Salario'
 
 const HOJE = '2026-11-19'
 
@@ -170,5 +171,13 @@ describe('projeção e análise', () => {
     const b = base()
     const a = analise(b, HOJE)
     expect(a.some(x => x.texto.includes('histórico suficiente'))).toBe(true)
+  })
+})
+
+describe('salário em partes', () => {
+  it('divide sem perder centavos', () => {
+    expect(dividir(250000, [60, 40])).toEqual([150000, 100000])
+    expect(dividir(308500, [60, 40])).toEqual([185100, 123400])
+    expect(dividir(100001, [33.3, 33.3, 33.4]).reduce((a, v) => a + v, 0)).toBe(100001)
   })
 })

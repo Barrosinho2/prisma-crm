@@ -6,10 +6,11 @@ import { supabase } from '../lib/supabase'
 import { useDados } from '../lib/dados'
 import { essenciaisMensais } from '../lib/motor'
 import { reais } from '../lib/formato'
-import { TIPOS_CONTA, type Categoria, type Recorrencia, type TipoConta } from '../lib/tipos'
+import { TIPOS_CONTA, type Categoria, type TipoConta } from '../lib/tipos'
 import { Cabecalho } from '../components/Layout'
 import { Abas, Alternar, Botao, Campo, CampoValor, Entrada, Etiqueta, IconeCategoria, Modal, Painel, Seletor, TituloPainel, Valor, cn, useAcao, useAvisos } from '../components/ui'
-import { CategoriaModal, RecorrenciaModal } from '../components/Formularios'
+import { CategoriaModal } from '../components/Formularios'
+import { EditorSalario, ResumoSalario, partesDoSalario } from '../components/Salario'
 
 export default function Configuracoes() {
   const { banco, hoje, salvarConfig } = useDados()
@@ -21,9 +22,9 @@ export default function Configuracoes() {
   const [objetivo, setObjetivo] = useState<number | null>(cfg?.objetivo_economia_cents ?? 0)
   const [essenciais, setEssenciais] = useState<number | null>(cfg?.essenciais_cents ?? null)
   const [alertaDias, setAlertaDias] = useState(cfg?.alerta_dias ?? 3)
-  const [recEditar, setRecEditar] = useState<Recorrencia | null>(null)
+  const [editarSalario, setEditarSalario] = useState(false)
   const ess = essenciaisMensais({ ...banco, config: cfg ? { ...cfg, essenciais_cents: null } : null }, hoje)
-  const salario = banco.recorrencias.find(r => r.tipo === 'receita' && r.ativa)
+  const salario = partesDoSalario(banco)
 
   useEffect(() => { if (params.get('inicio') === '1') setAssistente(true) }, [params])
 
@@ -39,12 +40,12 @@ export default function Configuracoes() {
             <Campo rotulo="Seu nome"><Entrada value={nome} onChange={e => setNome(e.target.value)} onBlur={() => nome !== (cfg?.nome ?? '') && executar(() => salvarConfig({ nome: nome.trim() || null }), 'Nome salvo.')} maxLength={80} /></Campo>
             <div className="rounded-xl border border-borda bg-marfim/60 p-4">
               <p className="text-sm font-medium">Salário fixo</p>
-              {salario ? (
+              {salario.length ? (
                 <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className="text-sm text-taupe"><Valor cents={salario.valor_cents} className="font-semibold text-carvao" /> todo dia {salario.dia} · {salario.nome}</p>
-                  <Botao tamanho="sm" onClick={() => setRecEditar(salario)}>Alterar</Botao>
+                  <ResumoSalario partes={salario} />
+                  <Botao tamanho="sm" onClick={() => setEditarSalario(true)}>Alterar</Botao>
                 </div>
-              ) : <SalarioRapido />}
+              ) : <EditorSalario />}
               <p className="mt-2 text-xs text-taupe">Começa a partir de hoje (o que já entrou está no saldo inicial das contas). Gera a previsão de cada mês automaticamente. O saldo só aumenta quando você confirma o recebimento.</p>
             </div>
           </div>
@@ -95,7 +96,9 @@ export default function Configuracoes() {
         <p className="flex items-start gap-2"><L.ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-vinho-suave" />Seus dados ficam num banco PostgreSQL com acesso restrito por usuário (Row Level Security). Valores são guardados em centavos inteiros. Alterações em movimentações ficam registradas. Este sistema não se conecta a bancos: tudo é lançado por você.</p>
       </Painel>
 
-      <RecorrenciaModal rec={recEditar} aoFechar={() => setRecEditar(null)} />
+      <Modal aberto={editarSalario} aoFechar={() => setEditarSalario(false)} titulo="Salário fixo" sub="Valem para as previsões ainda não recebidas, deste mês em diante. O que já foi recebido não muda.">
+        <EditorSalario aoSalvar={() => setEditarSalario(false)} />
+      </Modal>
       <Assistente aberto={assistente} aoFechar={() => { setAssistente(false); if (params.get('inicio')) { params.delete('inicio'); setParams(params, { replace: true }) } }} />
     </div>
   )
@@ -103,33 +106,6 @@ export default function Configuracoes() {
 
 function Linha({ r, a, children }: { r: string; a?: string; children: React.ReactNode }) {
   return <div className="flex items-center justify-between gap-4"><div><p className="text-sm font-medium">{r}</p>{a && <p className="text-xs text-taupe">{a}</p>}</div>{children}</div>
-}
-
-function SalarioRapido({ aoSalvar }: { aoSalvar?: () => void }) {
-  const { banco, hoje, inserir, rpc } = useDados()
-  const { ocupado, executar } = useAcao()
-  const [valor, setValor] = useState<number | null>(null)
-  const [dia, setDia] = useState(5)
-  const [conta, setConta] = useState('')
-  const contas = banco.contas.filter(c => !c.arquivada)
-  useEffect(() => { if (!conta && contas[0]) setConta(contas[0].id) }, [contas, conta])
-  const cat = banco.categorias.find(c => c.tipo === 'receita' && /sal[aá]rio/i.test(c.nome))
-  if (!contas.length) return <p className="mt-2 text-sm text-taupe">Cadastre uma conta primeiro para saber onde o salário entra.</p>
-  return (
-    <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_90px_1fr_auto] sm:items-end">
-      <Campo rotulo="Valor"><CampoValor valor={valor} aoMudar={setValor} /></Campo>
-      <Campo rotulo="Dia"><Seletor value={dia} onChange={e => setDia(+e.target.value)}>{Array.from({ length: 31 }, (_, i) => <option key={i + 1}>{i + 1}</option>)}</Seletor></Campo>
-      <Campo rotulo="Conta"><Seletor value={conta} onChange={e => setConta(e.target.value)}>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</Seletor></Campo>
-      <Botao variante="primario" carregando={ocupado} onClick={async () => {
-        if (!valor || valor <= 0 || !conta) return
-        const ok = await executar(async () => {
-          await inserir('recorrencias', { tipo: 'receita', nome: 'Salário', valor_cents: valor, dia, conta_id: conta, categoria_id: cat?.id ?? null, inicio: hoje, forma_pagamento: 'transferencia' })
-          await rpc('fin_gerar_previsoes')
-        }, 'Salário configurado. As previsões mensais foram criadas.')
-        if (ok) aoSalvar?.()
-      }}>Salvar</Botao>
-    </div>
-  )
 }
 
 function Seguranca() {
@@ -278,10 +254,10 @@ function Assistente({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => voi
           {etapa === 1 && (
             <div>
               <p className="titulo text-xl">Seu salário fixo</p>
-              <p className="mt-1 text-sm text-taupe">Informe o valor e o dia de recebimento. Cada mês aparece como previsto até você confirmar.</p>
-              {banco.recorrencias.some(r => r.tipo === 'receita' && r.ativa)
+              <p className="mt-1 text-sm text-taupe">Informe o valor e o dia de recebimento (ou as datas e percentuais, se recebe em partes). Cada mês aparece como previsto até você confirmar.</p>
+              {partesDoSalario(banco).length > 0
                 ? <p className="mt-4 flex items-center gap-2 rounded-xl bg-receita-fundo px-3 py-2 text-sm text-receita"><L.CircleCheck className="h-4 w-4" />Salário já configurado.</p>
-                : <SalarioRapido aoSalvar={() => setEtapa(2)} />}
+                : <EditorSalario aoSalvar={() => setEtapa(2)} />}
             </div>
           )}
           {etapa === 2 && (

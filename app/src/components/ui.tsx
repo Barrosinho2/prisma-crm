@@ -150,8 +150,7 @@ export function Alternar({ ligado, aoMudar, rotulo }: { ligado: boolean; aoMudar
   return (
     <button type="button" role="switch" aria-checked={ligado} aria-label={rotulo} onClick={() => aoMudar(!ligado)}
       className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', ligado ? 'bg-vinho' : 'bg-borda')}>
-      <motion.span layout transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-        className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow', ligado ? 'right-0.5' : 'left-0.5')} />
+      <span className={cn('absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200', ligado && 'translate-x-5')} />
     </button>
   )
 }

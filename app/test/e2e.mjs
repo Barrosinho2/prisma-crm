@@ -74,10 +74,10 @@ try {
   await espera(500)
   ok('etapa 1: duas contas criadas', T('fin_contas').length === 2, T('fin_contas').map(c => `${c.nome}=${c.saldo_inicial_cents}`).join(', '))
   await dlg.getByRole('button', { name: 'Próxima etapa' }).click()
-  await dlg.getByLabel('Valor').fill('2.500,00')
-  await dlg.getByRole('combobox', { name: /^Dia/ }).selectOption('5')
-  await dlg.getByRole('button', { name: 'Salvar' }).click()
-  await page.getByText(/Salário configurado/).waitFor()
+  await dlg.getByLabel('Salário total por mês').fill('2.500,00')
+  await dlg.getByRole('combobox', { name: /^Dia do recebimento/ }).selectOption('5')
+  await dlg.getByRole('button', { name: 'Salvar salário' }).click()
+  await page.getByText(/Salário salvo/).waitFor()
   const sal = T('fin_recorrencias').find(r => r.tipo === 'receita')
   ok('etapa 2: salário recorrente criado', sal?.valor_cents === 250000 && sal.dia === 5)
   ok('salário gera previsões (não recebidas)', T('fin_lancamentos').filter(l => l.recorrencia_id === sal.id).length >= 1 && T('fin_lancamentos').every(l => l.status === 'pendente'))
@@ -192,6 +192,23 @@ try {
   await espera(300)
   ok('ocultar valores esconde os números', (await page.locator('main').innerText()).includes('R$ ••••'))
   await page.getByRole('button', { name: 'Mostrar valores' }).first().click()
+
+  // ---------- salário em partes (60% dia 5, 40% dia 20) ----------
+  await page.goto(BASE + '/configuracoes')
+  await page.getByRole('button', { name: 'Alterar' }).first().click()
+  const ds = page.getByRole('dialog')
+  await ds.getByRole('switch', { name: 'Recebo em mais de uma data' }).click()
+  await page.screenshot({ path: FOTOS + 'salario-partes.png' })
+  await ds.getByRole('button', { name: 'Salvar salário' }).click()
+  await page.getByText(/Salário em partes salvo/).waitFor()
+  const partesSal = T('fin_recorrencias').filter(r => r.tipo === 'receita' && r.ativa).sort((a, z) => a.dia - z.dia)
+  ok('salário em partes: 60% dia 5 e 40% dia 20', partesSal.length === 2 && partesSal[0].dia === 5 && partesSal[0].valor_cents === 150000 && partesSal[1].dia === 20 && partesSal[1].valor_cents === 100000, partesSal.map(r => `${r.dia}:${r.valor_cents}`).join(' '))
+  const porRecMes = {}
+  for (const l of T('fin_lancamentos').filter(l => l.recorrencia_id && l.tipo === 'receita')) { const k = l.recorrencia_id + l.competencia; porRecMes[k] = (porRecMes[k] ?? 0) + 1 }
+  const p2dez = T('fin_lancamentos').find(l => l.recorrencia_id === partesSal[1].id && l.competencia === '2026-12-01')
+  const p1dez = T('fin_lancamentos').find(l => l.recorrencia_id === partesSal[0].id && l.competencia === '2026-12-01')
+  ok('salário em partes: sem previsão duplicada e o já recebido não muda', Object.values(porRecMes).every(n => n === 1) && p2dez?.valor_cents === 100000 && p2dez.status === 'pendente' && p1dez?.status === 'efetivado' && p1dez.valor_cents === 250000, `${p1dez?.status}:${p1dez?.valor_cents} ${p2dez?.status}:${p2dez?.valor_cents}`)
+  ok('salário em partes: resumo mostra as duas datas', await page.getByText(/60% dia 5/).waitFor({ timeout: 4000 }).then(() => true).catch(() => false))
 
   // ---------- Teste 8: todas as telas em 3 tamanhos ----------
   const rotas = ['/', '/transacoes', '/contas', '/cartoes', '/a-pagar', '/orcamentos', '/metas', '/calendario', '/relatorios', '/configuracoes']
