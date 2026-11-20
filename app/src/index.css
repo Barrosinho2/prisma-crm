@@ -1,0 +1,59 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-vinho: #621F32;
+  --color-vinho-escuro: #421625;
+  --color-vinho-suave: #875364;
+  --color-vinho-claro: #F1E6E8;
+  --color-marfim: #F8F5F0;
+  --color-creme: #EEE9E2;
+  --color-cartao: #FFFCF8;
+  --color-carvao: #292526;
+  --color-taupe: #817678;
+  --color-borda: #E3DCD7;
+  --color-receita: #3F6E52;
+  --color-receita-fundo: #E8F0EA;
+  --color-despesa: #9E3B3B;
+  --color-despesa-fundo: #F6E7E5;
+  --color-atencao: #9A6B2F;
+  --color-atencao-fundo: #F5ECDD;
+  --color-info: #4F6A84;
+
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+
+  --shadow-suave: 0 1px 2px rgb(66 22 37 / 0.04), 0 4px 16px -4px rgb(66 22 37 / 0.06);
+  --shadow-elevada: 0 12px 40px -12px rgb(66 22 37 / 0.25);
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-marfim text-carvao font-sans antialiased;
+    font-feature-settings: 'tnum' 0;
+  }
+  ::selection { background: #E4CBD2; color: #292526; }
+  :focus-visible { outline: 2px solid #875364; outline-offset: 2px; border-radius: 6px; }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  input[type='date']::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
+}
+
+@utility num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+@utility titulo { font-family: var(--font-serif); letter-spacing: -0.01em; }
+@utility rolagem-fina {
+  scrollbar-width: thin;
+  scrollbar-color: #D8CFCA transparent;
+}
+
+.esqueleto {
+  background: linear-gradient(90deg, #EEE9E2 0%, #F6F2EC 50%, #EEE9E2 100%);
+  background-size: 200% 100%;
+  animation: brilho 1.4s ease-in-out infinite;
+}
+@keyframes brilho { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+.recharts-wrapper:focus, .recharts-surface:focus, .recharts-sector:focus { outline: none; }
